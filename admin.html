@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Sarabun','Prompt','Segoe UI',sans-serif;background:#f2f4f7;color:#22303f}
+  header{background:#1e4a72;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+  header b{font-size:15px;letter-spacing:1px}
+  .wrap{max-width:1080px;margin:0 auto;padding:16px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{padding:9px 15px;border-radius:99px;background:#fff;border:1px solid #d7dde5;cursor:pointer;font-size:14px}
+  .tab.on{background:#1e4a72;color:#fff;border-color:#1e4a72}
+  .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+  h3{margin:0 0 12px;font-size:15px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;border-bottom:1px solid #eceff3;text-align:left;vertical-align:middle}
+  th{background:#f7f9fb;font-size:12px;color:#5a6674}
+  input,select,textarea{padding:8px;border:1px solid #cfd6de;border-radius:8px;font-family:inherit;font-size:13px;width:100%}
+  input[type=color]{padding:2px;height:34px}
+  button{padding:9px 14px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .b1{background:#1e4a72;color:#fff}.b2{background:#eef1f5;color:#22303f}.b3{background:#e04f4f;color:#fff}
+  .b4{background:#FFC53D;color:#22303f}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px}
+  .lbl{font-size:12px;color:#5a6674;display:block;margin-bottom:4px}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .kpi div{background:#1e4a72;color:#fff;border-radius:12px;padding:14px}
+  .kpi span{display:block;font-size:12px;opacity:.8}.kpi b{font-size:24px}
+  .qr{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .qr div{background:#fff;border:1px solid #e3e8ee;border-radius:12px;padding:12px;text-align:center;font-size:13px}
+  .qr img{width:150px;height:150px}
+  .qr small{display:block;word-break:break-all;color:#7b8794;font-size:10px;margin-top:6px}
+  .login{max-width:320px;margin:80px auto;text-align:center}
+  .hide{display:none}
+  .warn{background:#FFF4D1;border:1px solid #FFC53D;border-radius:10px;padding:10px;font-size:12px;line-height:1.65;margin-bottom:12px}
+  .info{background:#E7F1FB;border:1px solid #9CC3E8;border-radius:10px;padding:10px;font-size:12px;line-height:1.65;margin-bottom:12px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:99px}
+  .p-y{background:#dff5e3;color:#1c6b32}.p-n{background:#f0f2f5;color:#7b8794}
+  .p-P{background:#FFF4D1;color:#8a6100}.p-R{background:#dff5e3;color:#1c6b32}.p-E{background:#fde2e2;color:#8a1c1c}
+</style>
+</head>
+<body>
+
+<div id="login" class="login card">
+  <h3>ผู้ดูแลระบบ • Toy Station Plus+</h3>
+  <input type="password" id="pin" inputmode="numeric" placeholder="กรอก PIN" style="text-align:center;font-size:20px;letter-spacing:6px">
+  <button class="b1" style="width:100%;margin-top:10px" id="btnLogin">เข้าสู่ระบบ</button>
+  <div id="lerr" style="color:#c0392b;font-size:13px;margin-top:8px"></div>
+</div>
+
+<div id="app" class="hide">
+<header><b>ADMIN • วงล้อเสี่ยงโชค</b><button class="b2" onclick="location.reload()">ออกจากระบบ</button></header>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab on" data-t="prize">ของรางวัล</div>
+    <div class="tab" data-t="branch">สาขา &amp; QR</div>
+    <div class="tab" data-t="cfg">ตั้งค่ากิจกรรม</div>
+    <div class="tab" data-t="share">ระบบแชร์</div>
+    <div class="tab" data-t="rep">รายงาน</div>
+  </div>
+
+  <!-- ของรางวัล -->
+  <div id="t-prize">
+    <div class="card">
+      <h3>เพิ่ม / แก้ไขของรางวัล</h3>
+      <div class="warn"><b>weight</b> = น้ำหนักโอกาสออก (ไม่ใช่ %) ระบบคิดเป็นสัดส่วนของผลรวมในสาขานั้น เช่น 40/25/20/10/5 (รวม 100) = 40%,25%,20%,10%,5%<br>
+      <b>stock</b> = จำนวนคงเหลือ เมื่อเหลือ 0 ช่องนั้นหายจากวงล้ออัตโนมัติ • วงล้อต้องมีอย่างน้อย 2 ช่อง<br>
+      <b>ชื่อรางวัล</b> ระบบ Auto-fit ขนาดตัวอักษรให้เอง ยาวเกินจะตัดเป็น 2 บรรทัด — แนะนำไม่เกิน 18 ตัวอักษรเพื่อความสวยงาม</div>
+      <div class="row">
+        <div><span class="lbl">สาขา</span><select id="f_branch"></select></div>
+        <div><span class="lbl">ชื่อรางวัล</span><input id="f_name" placeholder="ตุ๊กตาพวงกุญแจ"></div>
+        <div><span class="lbl">สี</span><input type="color" id="f_color" value="#8ED1FC"></div>
+        <div><span class="lbl">weight</span><input type="number" id="f_weight" value="10" min="0"></div>
+        <div><span class="lbl">สต็อก</span><input type="number" id="f_stock" value="50" min="0"></div>
+        <div><span class="lbl">สถานะ</span><select id="f_active"><option value="Y">เปิดใช้</option><option value="N">ปิด</option></select></div>
+      </div>
+      <input type="hidden" id="f_row"><input type="hidden" id="f_id">
+      <button class="b1" id="btnSave">บันทึกรางวัล</button>
+      <button class="b2" id="btnClear">ล้างฟอร์ม</button>
+    </div>
+    <div class="card">
+      <h3>รายการรางวัล <select id="filterBranch" style="width:auto;margin-left:8px"></select></h3>
+      <table><thead><tr><th>ID</th><th>สาขา</th><th>ชื่อรางวัล</th><th>สี</th><th>weight</th><th>โอกาส</th><th>สต็อก</th><th>สถานะ</th><th></th></tr></thead>
+      <tbody id="pzBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- สาขา + QR -->
+  <div id="t-branch" class="hide">
+    <div class="card">
+      <h3>สาขาที่เข้าร่วม</h3>
+      <table><thead><tr><th>รหัส</th><th>ชื่อสาขา</th><th>เปิดกิจกรรม</th><th></th></tr></thead><tbody id="brBody"></tbody></table>
+      <div class="row" style="margin-top:12px">
+        <div><span class="lbl">รหัสสาขาใหม่</span><input id="nb_code" placeholder="BR11"></div>
+        <div><span class="lbl">ชื่อสาขา</span><input id="nb_name"></div>
+        <div style="align-self:end"><button class="b1" id="btnAddBr">เพิ่มสาขา</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>QR Code เข้าหน้าหมุนวงล้อ (คลิกขวาบันทึกรูปไปสั่งพิมพ์)</h3>
+      <div class="qr" id="qrBox"></div>
+    </div>
+  </div>
+
+  <!-- ตั้งค่ากิจกรรม -->
+  <div id="t-cfg" class="hide">
+    <div class="card">
+      <h3>ตั้งค่ากิจกรรม</h3>
+      <div class="row">
+        <div><span class="lbl">ชื่อกิจกรรม</span><input id="c_event"></div>
+        <div><span class="lbl">สิทธิ์สูงสุด/เบอร์</span><input type="number" id="c_max"></div>
+        <div><span class="lbl">รอบการนับสิทธิ์</span><select id="c_scope"><option value="DAY">นับใหม่ทุกวัน</option><option value="EVENT">นับรวมตลอดกิจกรรม</option></select></div>
+        <div><span class="lbl">นับสิทธิ์แยกสาขา</span><select id="c_perbr"><option value="Y">แยกรายสาขา</option><option value="N">รวมทุกสาขา</option></select></div>
+        <div><span class="lbl">วันเริ่ม</span><input type="date" id="c_start"></div>
+        <div><span class="lbl">วันสิ้นสุด</span><input type="date" id="c_end"></div>
+        <div><span class="lbl">อายุโค้ดรับรางวัล (นาที)</span><input type="number" id="c_min"></div>
+        <div><span class="lbl">ขนาดตัวอักษรบนวงล้อ (0.7–1.4)</span><input type="number" step="0.05" min="0.6" max="1.6" id="c_font"></div>
+      </div>
+      <div><span class="lbl">ข้อความยินยอม PDPA</span><textarea id="c_pdpa" rows="2"></textarea></div>
+      <div style="margin-top:10px"><span class="lbl">ข้อความท้ายหน้า</span><textarea id="c_foot" rows="2"></textarea></div>
+      <button class="b1" style="margin-top:12px" id="btnCfg">บันทึกการตั้งค่า</button>
+    </div>
+    <div class="card">
+      <h3>ความปลอดภัย &amp; เครื่องมือ</h3>
+      <div class="row">
+        <div><span class="lbl">เปลี่ยน ADMIN PIN</span><input id="pin_admin" placeholder="ตัวเลข 4-8 หลัก"></div>
+        <div style="align-self:end"><button class="b1" onclick="chPin('admin')">บันทึก</button></div>
+        <div><span class="lbl">เปลี่ยน STAFF PIN</span><input id="pin_staff" placeholder="ตัวเลข 4-8 หลัก"></div>
+        <div style="align-self:end"><button class="b1" onclick="chPin('staff')">บันทึก</button></div>
+      </div>
+      <hr style="border:none;border-top:1px solid #eceff3;margin:14px 0">
+      <div class="row">
+        <div><span class="lbl">รีเซ็ตสิทธิ์เบอร์โทร</span><input id="rs_phone" placeholder="08XXXXXXXX"></div>
+        <div style="align-self:end"><button class="b3" id="btnReset">รีเซ็ตสิทธิ์</button></div>
+        <div style="align-self:end"><button class="b4" id="btnRestore">คืนสต็อกจากโค้ดหมดอายุ</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ระบบแชร์ -->
+  <div id="t-share" class="hide">
+    <div class="card">
+      <h3>ระบบบังคับแชร์ Facebook</h3>
+      <div class="info"><b>ข้อจำกัดที่ต้องรับทราบ:</b> Facebook ไม่เปิด API ให้ตรวจสอบว่าผู้ใช้โพสต์จริงหรือไม่ และไม่อนุญาตให้ใส่ข้อความอัตโนมัติในช่องเขียนโพสต์
+      ระบบนี้จึงทำได้คือ <b>คัดลอกแคปชั่นให้ลูกค้าอัตโนมัติ + เปิดหน้าแชร์ + จับเวลาฝั่ง server</b> ว่าออกจากหน้าไปนานพอ จึงจะปลดล็อกให้หมุน
+      ส่วน <b>ภาพและหัวเรื่องที่ขึ้นตอนแชร์</b> มาจาก Landing Page ที่ตั้งค่าด้านล่าง</div>
+      <div class="row">
+        <div><span class="lbl">โหมด</span><select id="s_mode"><option value="SOFT">SOFT — บังคับแชร์</option><option value="OFF">OFF — ไม่บังคับ</option></select></div>
+        <div><span class="lbl">เวลาขั้นต่ำที่ต้องออกจากหน้า (วินาที)</span><input type="number" id="s_sec" min="3" max="60"></div>
+        <div><span class="lbl">ต้องแชร์ทุกครั้งก่อนหมุน</span><select id="s_every"><option value="N">ไม่ — แชร์ครั้งเดียวปลดล็อกทั้ง session</option><option value="Y">ใช่ — แชร์ใหม่ทุกครั้ง</option></select></div>
+      </div>
+      <div class="row">
+        <div><span class="lbl">URL โฟลเดอร์ Landing Page</span><input id="s_base" placeholder="https://ชื่อผู้ใช้.github.io/tsp-wheel"></div>
+        <div><span class="lbl">จำนวนไฟล์ Landing ที่จะสุ่ม</span><input type="number" id="s_var" min="1" max="10"></div>
+      </div>
+      <div><span class="lbl">แคปชั่นสุ่ม (คั่นแต่ละอันด้วยเครื่องหมาย | )</span><textarea id="s_caps" rows="5"></textarea></div>
+      <button class="b1" style="margin-top:12px" id="btnShareCfg">บันทึกระบบแชร์</button>
+    </div>
+    <div class="card">
+      <h3>ตรวจสอบลิงก์ที่จะถูกแชร์</h3>
+      <table><thead><tr><th>ไฟล์</th><th>ลิงก์ที่ลูกค้าจะแชร์ (ตัวอย่างสาขาแรก)</th></tr></thead><tbody id="lnBody"></tbody></table>
+      <div class="warn" style="margin-top:12px">หลังอัปโหลด Landing Page แล้ว ให้เอาลิงก์ไปวางที่ <a href="https://developers.facebook.com/tools/debug/" target="_blank">Facebook Sharing Debugger</a> แล้วกด <b>Scrape Again</b> หนึ่งครั้งต่อไฟล์ เพื่อให้ FB ดึงภาพไปแคชไว้ ไม่งั้นครั้งแรกที่แชร์อาจยังไม่ขึ้นรูป</div>
+    </div>
+  </div>
+
+  <!-- รายงาน -->
+  <div id="t-rep" class="hide">
+    <div class="card">
+      <h3>สรุปผล <select id="repBranch" style="width:auto;margin-left:8px"></select></h3>
+      <div class="kpi">
+        <div><span>จำนวนการหมุน</span><b id="k1">-</b></div>
+        <div><span>รับรางวัลแล้ว</span><b id="k2">-</b></div>
+        <div><span>เบอร์ที่ร่วมกิจกรรม</span><b id="k3">-</b></div>
+        <div><span>อัตราการมารับ</span><b id="k4">-</b></div>
+      </div>
+    </div>
+    <div class="card"><h3>แยกตามรางวัล</h3>
+      <table><thead><tr><th>รางวัล</th><th>ออกรางวัล</th><th>มารับจริง</th></tr></thead><tbody id="repPrize"></tbody></table></div>
+    <div class="card"><h3>ประวัติการหมุนล่าสุด 100 รายการ</h3>
+      <table><thead><tr><th>เวลา</th><th>สาขา</th><th>เบอร์</th><th>รางวัล</th><th>โค้ด</th><th>สถานะ</th></tr></thead><tbody id="repLog"></tbody></table></div>
+  </div>
+</div>
+</div>
+
+<script>
+var TK='', DATA=null;
+
+document.getElementById('btnLogin').onclick=doLogin;
+document.getElementById('pin').addEventListener('keyup',function(e){ if(e.key==='Enter') doLogin(); });
+function doLogin(){
+  google.script.run.withSuccessHandler(function(r){
+    if(!r.ok){ document.getElementById('lerr').textContent=r.msg; return; }
+    TK=r.token;
+    document.getElementById('login').classList.add('hide');
+    document.getElementById('app').classList.remove('hide');
+    load();
+  }).adminLogin(document.getElementById('pin').value);
+}
+function load(){
+  google.script.run.withSuccessHandler(function(r){ DATA=r; render(); })
+    .withFailureHandler(function(e){alert(e.message);}).adminBootstrap(TK);
+}
+
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick=function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+    t.classList.add('on');
+    ['prize','branch','cfg','share','rep'].forEach(function(k){
+      document.getElementById('t-'+k).classList.toggle('hide', k!==t.dataset.t);
+    });
+    if(t.dataset.t==='rep') loadReport();
+  };
+});
+
+function render(){
+  var opts='', optsAll='<option value="">ทุกสาขา</option>';
+  DATA.branches.forEach(function(b){
+    opts+='<option value="'+b.code+'">'+b.code+' — '+b.name+'</option>';
+    optsAll+='<option value="'+b.code+'">'+b.code+' — '+b.name+'</option>';
+  });
+  document.getElementById('f_branch').innerHTML=opts;
+  document.getElementById('filterBranch').innerHTML=optsAll;
+  document.getElementById('repBranch').innerHTML=optsAll;
+  document.getElementById('filterBranch').onchange=renderPrizes;
+  document.getElementById('repBranch').onchange=loadReport;
+  renderPrizes(); renderBranches(); renderQR(); renderCfg(); renderShare();
+}
+
+function renderPrizes(){
+  var f=document.getElementById('filterBranch').value;
+  var list=DATA.prizes.filter(function(p){ return !f||p.branch===f; });
+  var sum={};
+  list.forEach(function(p){ if(p.active==='Y'&&p.stock>0) sum[p.branch]=(sum[p.branch]||0)+p.weight; });
+  var h='';
+  list.forEach(function(p){
+    var tot=sum[p.branch]||0;
+    var pct=(p.active==='Y'&&p.stock>0&&tot)?(p.weight*100/tot).toFixed(1)+'%':'-';
+    h+='<tr><td>'+p.id+'</td><td>'+p.branch+'</td><td>'+p.name+'</td>'
+     +'<td><span style="display:inline-block;width:22px;height:14px;border-radius:3px;background:'+p.color+'"></span></td>'
+     +'<td>'+p.weight+'</td><td><b>'+pct+'</b></td><td>'+p.stock+'</td>'
+     +'<td><span class="pill '+(p.active==='Y'?'p-y':'p-n')+'">'+(p.active==='Y'?'เปิด':'ปิด')+'</span></td>'
+     +'<td style="white-space:nowrap"><button class="b2" onclick="edit('+p.row+')">แก้</button> '
+     +'<button class="b3" onclick="del('+p.row+')">ลบ</button></td></tr>';
+  });
+  document.getElementById('pzBody').innerHTML=h||'<tr><td colspan="9">ยังไม่มีรายการ</td></tr>';
+}
+function edit(row){
+  var p=DATA.prizes.filter(function(x){return x.row===row;})[0];
+  document.getElementById('f_row').value=p.row; document.getElementById('f_id').value=p.id;
+  document.getElementById('f_branch').value=p.branch; document.getElementById('f_name').value=p.name;
+  document.getElementById('f_color').value=p.color; document.getElementById('f_weight').value=p.weight;
+  document.getElementById('f_stock').value=p.stock; document.getElementById('f_active').value=p.active;
+  window.scrollTo(0,0);
+}
+function del(row){ if(confirm('ลบรางวัลนี้?')) google.script.run.withSuccessHandler(load).adminDeletePrize(TK,row); }
+document.getElementById('btnClear').onclick=function(){
+  ['f_row','f_id','f_name'].forEach(function(i){document.getElementById(i).value='';});
+};
+document.getElementById('btnSave').onclick=function(){
+  var o={row:document.getElementById('f_row').value,id:document.getElementById('f_id').value,
+    branch:document.getElementById('f_branch').value,name:document.getElementById('f_name').value,
+    color:document.getElementById('f_color').value,weight:document.getElementById('f_weight').value,
+    stock:document.getElementById('f_stock').value,active:document.getElementById('f_active').value};
+  if(!o.name){ alert('กรุณาใส่ชื่อรางวัล'); return; }
+  google.script.run.withSuccessHandler(function(){document.getElementById('btnClear').click();load();})
+    .withFailureHandler(function(e){alert(e.message);}).adminSavePrize(TK,o);
+};
+
+function renderBranches(){
+  var h='';
+  DATA.branches.forEach(function(b){
+    h+='<tr><td><b>'+b.code+'</b></td>'
+     +'<td><input value="'+b.name+'" id="bn'+b.row+'"></td>'
+     +'<td><select id="ba'+b.row+'"><option value="Y"'+(b.active==='Y'?' selected':'')+'>เปิด</option>'
+     +'<option value="N"'+(b.active!=='Y'?' selected':'')+'>ปิด</option></select></td>'
+     +'<td><button class="b1" onclick="saveBr('+b.row+',\''+b.code+'\')">บันทึก</button></td></tr>';
+  });
+  document.getElementById('brBody').innerHTML=h;
+}
+function saveBr(row,code){
+  google.script.run.withSuccessHandler(load).adminSaveBranch(TK,{row:row,code:code,
+    name:document.getElementById('bn'+row).value,active:document.getElementById('ba'+row).value});
+}
+document.getElementById('btnAddBr').onclick=function(){
+  var c=document.getElementById('nb_code').value.trim().toUpperCase(), n=document.getElementById('nb_name').value.trim();
+  if(!c||!n){ alert('กรอกรหัสและชื่อสาขา'); return; }
+  google.script.run.withSuccessHandler(function(){
+    document.getElementById('nb_code').value='';document.getElementById('nb_name').value='';load();
+  }).adminSaveBranch(TK,{row:0,code:c,name:n,active:'Y'});
+};
+
+function renderQR(){
+  var h='';
+  DATA.branches.forEach(function(b){
+    var url=DATA.webUrl+'?b='+b.code;
+    h+='<div><b>'+b.name+'</b> <span class="pill '+(b.active==='Y'?'p-y':'p-n')+'">'+(b.active==='Y'?'เปิด':'ปิด')+'</span><br>'
+     +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data='+encodeURIComponent(url)+'">'
+     +'<small>'+url+'</small></div>';
+  });
+  document.getElementById('qrBox').innerHTML=h;
+}
+
+function renderCfg(){
+  var c=DATA.cfg;
+  document.getElementById('c_event').value=c.event_name;
+  document.getElementById('c_max').value=c.max_spin_phone;
+  document.getElementById('c_scope').value=c.limit_scope;
+  document.getElementById('c_perbr').value=c.limit_per_branch;
+  document.getElementById('c_start').value=c.start_date;
+  document.getElementById('c_end').value=c.end_date;
+  document.getElementById('c_min').value=c.redeem_minutes;
+  document.getElementById('c_font').value=c.wheel_font_scale;
+  document.getElementById('c_pdpa').value=c.pdpa_text;
+  document.getElementById('c_foot').value=c.footer_note;
+}
+document.getElementById('btnCfg').onclick=function(){
+  google.script.run.withSuccessHandler(function(){alert('บันทึกแล้ว');load();}).adminSaveConfig(TK,{
+    event_name:document.getElementById('c_event').value,
+    max_spin_phone:document.getElementById('c_max').value,
+    limit_scope:document.getElementById('c_scope').value,
+    limit_per_branch:document.getElementById('c_perbr').value,
+    start_date:document.getElementById('c_start').value,
+    end_date:document.getElementById('c_end').value,
+    redeem_minutes:document.getElementById('c_min').value,
+    wheel_font_scale:document.getElementById('c_font').value,
+    pdpa_text:document.getElementById('c_pdpa').value,
+    footer_note:document.getElementById('c_foot').value
+  });
+};
+
+function renderShare(){
+  var c=DATA.cfg;
+  document.getElementById('s_mode').value=c.share_mode;
+  document.getElementById('s_sec').value=c.share_min_seconds;
+  document.getElementById('s_every').value=c.share_every_spin;
+  document.getElementById('s_base').value=c.share_landing_base;
+  document.getElementById('s_var').value=c.share_variants;
+  document.getElementById('s_caps').value=c.share_captions;
+  renderLinks();
+}
+function renderLinks(){
+  var base=String(document.getElementById('s_base').value||'').trim().replace(/\/+$/,'');
+  var n=Number(document.getElementById('s_var').value)||1;
+  var b=DATA.branches.length?DATA.branches[0].code:'BR01', h='';
+  for(var i=1;i<=n;i++){
+    var u=base?(base+'/'+i+'.html?b='+b):(DATA.webUrl+'?b='+b+'  (ยังไม่ตั้ง Landing — จะไม่มีภาพตอนแชร์)');
+    h+='<tr><td>'+i+'.html</td><td style="word-break:break-all">'+u+'</td></tr>';
+  }
+  document.getElementById('lnBody').innerHTML=h;
+}
+document.getElementById('s_base').addEventListener('input',renderLinks);
+document.getElementById('s_var').addEventListener('input',renderLinks);
+
+document.getElementById('btnShareCfg').onclick=function(){
+  google.script.run.withSuccessHandler(function(){alert('บันทึกแล้ว');load();}).adminSaveConfig(TK,{
+    share_mode:document.getElementById('s_mode').value,
+    share_min_seconds:document.getElementById('s_sec').value,
+    share_every_spin:document.getElementById('s_every').value,
+    share_landing_base:document.getElementById('s_base').value,
+    share_variants:document.getElementById('s_var').value,
+    share_captions:document.getElementById('s_caps').value
+  });
+};
+
+function chPin(which){
+  google.script.run.withSuccessHandler(function(r){alert(r.msg);})
+    .adminChangePin(TK,which,document.getElementById(which==='admin'?'pin_admin':'pin_staff').value);
+}
+document.getElementById('btnReset').onclick=function(){
+  google.script.run.withSuccessHandler(function(r){alert(r.msg);}).adminResetQuota(TK,document.getElementById('rs_phone').value);
+};
+document.getElementById('btnRestore').onclick=function(){
+  if(!confirm('คืนสต็อกของโค้ดที่หมดอายุทั้งหมด?')) return;
+  google.script.run.withSuccessHandler(function(r){alert(r.msg);load();}).adminRestoreExpired(TK);
+};
+
+function loadReport(){
+  google.script.run.withSuccessHandler(function(r){
+    document.getElementById('k1').textContent=r.totalSpin;
+    document.getElementById('k2').textContent=r.totalRedeem;
+    document.getElementById('k3').textContent=r.uniquePhone;
+    document.getElementById('k4').textContent=r.totalSpin?(r.totalRedeem*100/r.totalSpin).toFixed(1)+'%':'-';
+    var h='';
+    Object.keys(r.byPrize).forEach(function(k){h+='<tr><td>'+k+'</td><td>'+r.byPrize[k].spin+'</td><td>'+r.byPrize[k].redeem+'</td></tr>';});
+    document.getElementById('repPrize').innerHTML=h||'<tr><td colspan="3">ยังไม่มีข้อมูล</td></tr>';
+    var g='';
+    r.recent.forEach(function(x){
+      var cls=x.status==='REDEEMED'?'p-R':x.status==='EXPIRED'?'p-E':'p-P';
+      g+='<tr><td>'+x.time+'</td><td>'+x.branch+'</td><td>'+x.phone+'</td><td>'+x.prize+'</td><td>'+x.code+'</td>'
+       +'<td><span class="pill '+cls+'">'+x.status+'</span></td></tr>';
+    });
+    document.getElementById('repLog').innerHTML=g||'<tr><td colspan="6">ยังไม่มีข้อมูล</td></tr>';
+  }).withFailureHandler(function(e){alert(e.message);})
+   .adminReport(TK,document.getElementById('repBranch').value,100);
+}
+</script>
+</body>
+</html>
