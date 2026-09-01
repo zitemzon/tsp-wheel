@@ -42,8 +42,16 @@
     <button class="ghost" id="btnCopy">คัดลอกอีกครั้ง</button>
   </div>
 
+  <div class="card" id="pageCard">
+    <span class="lbl">❤️ ขั้นที่ 1 — กดถูกใจเพจของเรา</span>
+    <a class="fb" id="btnPage" href="#" target="_blank" rel="noopener">เปิดเพจ Toy Station Plus+</a>
+    <div class="note" style="margin-top:6px;text-align:left;opacity:.7">
+      กดถูกใจ/ติดตามเพจไว้ จะได้ไม่พลาดกิจกรรมแจกของรางวัลรอบหน้า
+    </div>
+  </div>
+
   <div class="card">
-    <span class="lbl">ขั้นตอน</span>
+    <span class="lbl">📤 ขั้นที่ 2 — แชร์กิจกรรม</span>
     <ol class="step">
       <li>กดปุ่มสีเหลืองด้านล่าง</li>
       <li>เลือก <b>Facebook</b> จากรายการที่ขึ้นมา</li>
@@ -65,11 +73,22 @@
   var URLX = q.get('u') || '';        // ลิงก์ landing ที่จะแชร์
   var CAP  = q.get('c') || '';        // แคปชั่นสุ่มจาก server
   var BACK = q.get('back') || '';     // ลิงก์กลับหน้าวงล้อ
+  var PAGE = q.get('p') || '';        // ลิงก์เพจ Facebook ที่จัดกิจกรรม
 
   document.getElementById('cap').textContent = CAP || '(ไม่มีแคปชั่น)';
   document.getElementById('btnFb').href =
     'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(URLX);
   if (BACK) document.getElementById('btnBack').href = BACK;
+
+  /* ปุ่มเพจ — แสดงเฉพาะเมื่อตั้งค่า fb_page_url ไว้ในหน้า Admin */
+  if (PAGE) {
+    document.getElementById('btnPage').href = PAGE;
+    document.getElementById('btnPage').addEventListener('click', function(){
+      this.textContent = '✓ เปิดเพจแล้ว — อย่าลืมกดถูกใจนะครับ';
+    });
+  } else {
+    document.getElementById('pageCard').classList.add('hide');
+  }
 
   function copy(t){
     if(navigator.clipboard && navigator.clipboard.writeText){
