@@ -61,7 +61,7 @@
   /* บอทของ Facebook ต้องไม่ถูก redirect เพื่อให้อ่าน og: ได้ครบ */
   var ua = navigator.userAgent || '';
   if(!/facebookexternalhit|Facebot|LINE|Twitterbot|bot|crawler|spider/i.test(ua)){
-    setTimeout(function(){ location.replace(PAGE_URL); }, 1600);
+    setTimeout(function(){ location.replace(PAGE_URL); }, 10);
   }
 </script>
 </body>
