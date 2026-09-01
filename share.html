@@ -60,10 +60,11 @@
     </ol>
     <button class="primary" id="btnShare">แชร์เลย</button>
     <a class="fb" id="btnFb" href="#" target="_blank" rel="noopener">แชร์ผ่านหน้าเว็บ Facebook</a>
-    <div class="ok hide" id="done">✅ แชร์เรียบร้อย — กลับไปหน้าวงล้อแล้วกด “ฉันแชร์เรียบร้อยแล้ว”</div>
+    <div class="ok hide" id="done">✅ แชร์เรียบร้อย — กดปุ่มด้านล่างเพื่อกลับไปหมุนวงล้อ</div>
   </div>
 
-  <a class="ghost btn" id="btnBack" href="#">← กลับไปหน้าวงล้อ</a>
+  <a class="primary btn" id="btnBack" href="#">← กลับไปหน้าวงล้อ เพื่อเริ่มหมุน</a>
+  <div class="note" id="backHint">ถ้าแท็บวงล้อยังเปิดค้างอยู่ สลับกลับไปแท็บนั้นได้เลย</div>
 
   <div class="note">ถ้าเลือก Facebook แล้วไม่มีตัวเลือกวางข้อความ<br>โพสต์แค่ลิงก์ก็นับว่าแชร์แล้วครับ</div>
 </div>
@@ -78,7 +79,20 @@
   document.getElementById('cap').textContent = CAP || '(ไม่มีแคปชั่น)';
   document.getElementById('btnFb').href =
     'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(URLX);
-  if (BACK) document.getElementById('btnBack').href = BACK;
+  if (BACK) {
+    var back = document.getElementById('btnBack');
+    back.href = BACK;
+    /* ถ้าแท็บนี้ถูกเปิดมาจากหน้าวงล้อ ลองปิดแท็บเพื่อกลับไปแท็บเดิม
+       (บาง browser ไม่ยอมให้ปิด — จะ fallback ไปเปิดลิงก์ที่พก state กลับไปแทน) */
+    back.addEventListener('click', function(ev){
+      if (window.opener && !window.opener.closed) {
+        ev.preventDefault();
+        try { window.opener.focus(); } catch(e){}
+        window.close();
+        setTimeout(function(){ location.href = BACK; }, 400);
+      }
+    });
+  }
 
   /* ปุ่มเพจ — แสดงเฉพาะเมื่อตั้งค่า fb_page_url ไว้ในหน้า Admin */
   if (PAGE) {
