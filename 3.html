@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="th" prefix="og: https://ogp.me/ns#">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>วงล้อเสี่ยงโชคมาแล้ว! | Toy Station Plus+</title>
+
+<!-- ============================================================
+     แก้ 2 บรรทัดนี้ให้ตรงกับของคุณ แล้วอัปโหลดขึ้น GitHub Pages
+     BASE      = URL โฟลเดอร์นี้ (ต้องเป็น https และลงท้ายโดยไม่มี /)
+     WHEEL_URL = URL เว็บแอป Apps Script ของคุณ
+     ============================================================ -->
+<meta property="og:url"         content="https://zitemzon.github.io/tsp-wheel/3.html">
+<meta property="og:image"       content="https://zitemzon.github.io/tsp-wheel/og-3.png">
+
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="Toy Station Plus+">
+<meta property="og:locale"      content="th_TH">
+<meta property="og:title"       content="วงล้อเสี่ยงโชคมาแล้ว! | Toy Station Plus+">
+<meta property="og:description" content="หมุนเลย ไม่มีค่าใช้จ่าย ของรางวัลมีจำนวนจำกัด — Toy Station Plus+ ทุกสาขา">
+<meta property="og:image:width"  content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type"  content="image/png">
+<meta name="twitter:card"       content="summary_large_image">
+
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Kanit',-apple-system,'Sarabun',sans-serif;
+    background:radial-gradient(120% 80% at 50% 0%,#255480 0%,#12304f 45%,#0a1c30 100%);
+    color:#fff;min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px;text-align:center}
+  img{width:100%;max-width:520px;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+  h1{font-size:20px;margin:20px 0 6px;font-weight:800;line-height:1.4}
+  p{opacity:.85;font-size:14px;margin:0 0 20px;line-height:1.6;max-width:520px}
+  a.btn{background:#FFC53D;color:#22303f;text-decoration:none;font-weight:800;
+    padding:15px 34px;border-radius:12px;font-size:16px;display:inline-block}
+  small{display:block;margin-top:18px;opacity:.55;font-size:12px}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <img src="og-3.png" alt="วงล้อเสี่ยงโชค Toy Station Plus+">
+  <h1>วงล้อเสี่ยงโชคมาแล้ว! | Toy Station Plus+</h1>
+  <p>หมุนเลย ไม่มีค่าใช้จ่าย ของรางวัลมีจำนวนจำกัด — Toy Station Plus+ ทุกสาขา</p>
+  <a class="btn" id="go" href="#">เข้าหน้าหมุนวงล้อ</a>
+  <small>กำลังพาไปหน้ากิจกรรม…</small>
+
+<script>
+  /* >>> แก้บรรทัดนี้เป็น URL เว็บแอป Apps Script ของคุณ <<< */
+  var WHEEL_URL = "https://script.google.com/macros/s/AKfycbwv-IKY2qkjtgzL-4SUDxYlx7gadYXE7zFw7oNwvzc9Md8IbX2UqmytFIAK21LzW4G_eQ/exec";
+
+  var b = new URLSearchParams(location.search).get('b') || '';
+  var target = WHEEL_URL + (b ? '?b=' + encodeURIComponent(b) : '');
+  document.getElementById('go').href = target;
+
+  /* บอทของ Facebook/LINE จะไม่ถูก redirect เพื่อให้อ่าน og: ได้ครบ */
+  var ua = navigator.userAgent || '';
+  if(!/facebookexternalhit|Facebot|LINE|Twitterbot|bot|crawler|spider/i.test(ua)){
+    setTimeout(function(){ location.replace(target); }, 1400);
+  }
+</script>
+</body>
+</html>
