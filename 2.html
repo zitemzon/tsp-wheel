@@ -34,6 +34,8 @@
   p{opacity:.85;font-size:14px;margin:0 0 20px;line-height:1.6;max-width:520px}
   a.btn{background:#FFC53D;color:#22303f;text-decoration:none;font-weight:800;
     padding:15px 34px;border-radius:12px;font-size:16px;display:inline-block}
+  a.btn2{background:rgba(255,255,255,.15);color:#fff;text-decoration:none;font-weight:600;
+    padding:13px 30px;border-radius:12px;font-size:14px;display:inline-block;margin-top:10px}
   small{display:block;margin-top:18px;opacity:.55;font-size:12px}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
@@ -42,21 +44,24 @@
   <img src="og-2.png" alt="วงล้อเสี่ยงโชค Toy Station Plus+">
   <h1>ลุ้นฟรีทุกวัน 10 สิทธิ์ | Toy Station Plus+</h1>
   <p>วงล้อเสี่ยงโชค Toy Station Plus+ ของรางวัลเพียบทุกสาขา 1 เบอร์ 10 สิทธิ์ต่อวัน</p>
-  <a class="btn" id="go" href="#">เข้าหน้าหมุนวงล้อ</a>
-  <small>กำลังพาไปหน้ากิจกรรม…</small>
+  <a class="btn" id="go" href="#">❤️ เข้าชมเพจ Toy Station Plus+</a>
+  <a class="btn2" id="play" href="#">🎯 หรือเข้าหน้าหมุนวงล้อ</a>
+  <small>กำลังพาไปที่เพจ…</small>
 
 <script>
-  /* >>> แก้บรรทัดนี้เป็น URL เว็บแอป Apps Script ของคุณ <<< */
+  /* PAGE_URL  = เพจที่ต้องการดันทราฟฟิก (ปลายทางหลักเมื่อคนกดจากโพสต์)
+     WHEEL_URL = หน้าหมุนวงล้อ (ปุ่มรอง สำหรับคนที่อยากเล่นเลย)            */
+  var PAGE_URL  = "https://www.facebook.com/profile.php?id=61574460590152";
   var WHEEL_URL = "https://script.google.com/macros/s/AKfycbwv-IKY2qkjtgzL-4SUDxYlx7gadYXE7zFw7oNwvzc9Md8IbX2UqmytFIAK21LzW4G_eQ/exec";
 
   var b = new URLSearchParams(location.search).get('b') || '';
-  var target = WHEEL_URL + (b ? '?b=' + encodeURIComponent(b) : '');
-  document.getElementById('go').href = target;
+  document.getElementById('go').href   = PAGE_URL;
+  document.getElementById('play').href = WHEEL_URL + (b ? '?b=' + encodeURIComponent(b) : '');
 
-  /* บอทของ Facebook/LINE จะไม่ถูก redirect เพื่อให้อ่าน og: ได้ครบ */
+  /* บอทของ Facebook ต้องไม่ถูก redirect เพื่อให้อ่าน og: ได้ครบ */
   var ua = navigator.userAgent || '';
   if(!/facebookexternalhit|Facebot|LINE|Twitterbot|bot|crawler|spider/i.test(ua)){
-    setTimeout(function(){ location.replace(target); }, 1400);
+    setTimeout(function(){ location.replace(PAGE_URL); }, 1600);
   }
 </script>
 </body>
