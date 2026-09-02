@@ -51,7 +51,7 @@
 <script>
   /* PAGE_URL  = เพจที่ต้องการดันทราฟฟิก (ปลายทางหลักเมื่อคนกดจากโพสต์)
      WHEEL_URL = หน้าหมุนวงล้อ (ปุ่มรอง สำหรับคนที่อยากเล่นเลย)            */
-  var PAGE_URL  = "https://www.facebook.com/profile.php?id=61574460590152";
+  var PAGE_URL  = "https://www.facebook.com/phu.ket.toy.2024";
   var WHEEL_URL = "https://script.google.com/macros/s/AKfycbwv-IKY2qkjtgzL-4SUDxYlx7gadYXE7zFw7oNwvzc9Md8IbX2UqmytFIAK21LzW4G_eQ/exec";
 
   var b = new URLSearchParams(location.search).get('b') || '';
@@ -61,7 +61,7 @@
   /* บอทของ Facebook ต้องไม่ถูก redirect เพื่อให้อ่าน og: ได้ครบ */
   var ua = navigator.userAgent || '';
   if(!/facebookexternalhit|Facebot|LINE|Twitterbot|bot|crawler|spider/i.test(ua)){
-    setTimeout(function(){ location.replace(PAGE_URL); }, 10);
+    setTimeout(function(){ location.replace(PAGE_URL); }, 1600);
   }
 </script>
 </body>
