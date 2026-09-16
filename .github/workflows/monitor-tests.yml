@@ -1,0 +1,41 @@
+# รันเทสต์ของ TSP Revenue Monitor อัตโนมัติทุกครั้งที่แตะโฟลเดอร์ monitor/
+# ไม่ต้องลง dependency อะไรเพิ่ม — node กับ g++ มีอยู่แล้วบน ubuntu-latest
+name: monitor tests
+
+on:
+  push:
+    paths:
+      - 'monitor/**'
+      - '.github/workflows/monitor-tests.yml'
+  pull_request:
+    paths:
+      - 'monitor/**'
+      - '.github/workflows/monitor-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # TSP_Monitor_Route.gs เรียก SpreadsheetApp จึง unit test ไม่ได้
+      # อย่างน้อยต้องมั่นใจว่าไม่มี syntax error ก่อนเอาไปวางในโปรเจกต์จริง
+      - name: ตรวจไวยากรณ์ไฟล์ .gs
+        run: |
+          for f in monitor/apps-script/*.gs; do
+            cp "$f" "/tmp/$(basename "$f").js"
+            node --check "/tmp/$(basename "$f").js"
+            echo "ok  $f"
+          done
+
+      - name: สูตรฝั่ง Apps Script
+        run: node monitor/tests/calc.test.js
+
+      - name: ฟังก์ชันคำนวณฝั่งจอ
+        run: |
+          g++ -std=c++17 -Wall -I monitor/firmware/src monitor/tests/ui_util_test.cpp -o /tmp/ui_util_test
+          /tmp/ui_util_test
