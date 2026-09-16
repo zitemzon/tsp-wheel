@@ -1,69 +1,106 @@
 # 01 — ประเมินความสามารถระบบมอนิเตอร์รายได้
 
-> ตรวจจากข้อมูลจริงในชีตเมื่อ 16 ก.ย. 2026
+> ตรวจจากข้อมูลจริงในชีต + โค้ดจริงของระบบเดิม (16 ก.ย. 2026)
 > `TSP_Master_Database Ver.2` — `1FU1iosNzzepz8AVAFOz-ZRwzPzi_O5wgiOV3TYwcomk`
 > `TSP_TargetBot_Config` — `1MmioNBkITy7HiZTHXJcJOQFzRW0eTUwam55jovaxnJ4`
+> โค้ดเดิม: `TSP_Unified_Report.gs` v3.1 · `TSP_LINE_Flex.gs` v1.1 · `Code.gs`
 
 ## 1. ข้อมูลที่มีอยู่จริง
 
-| แท็บ (ระบุด้วยหัวคอลัมน์) | แถว | คอลัมน์ที่ระบบมอนิเตอร์ใช้ |
+| แท็บ | แถว | คอลัมน์ที่จอใช้ |
 | :-- | --: | :-- |
-| Branches | 47 (Active 8) | `Branch_ID`, `Branch_Name`, `Machine_Prefix`, `Status` |
-| Machines | 207 | `Machine_ID`, `Branch_ID`, `Coin_Price`, `Revenue_Method`, `Status` |
-| **Daily_Logs** | 79 | `Log_Date`, `Machine_ID`, `Branch_ID`, `Meter_Current/Previous/Diff`, `Revenue`, `Reading_Status`, `Cash_Collected`, `Is_Collection`, `Timestamp` |
+| Branches | 47 (Active 8) | `Branch_ID`, `Branch_Name`, `Status` |
+| Machines | 206 | `Machine_ID`, `Branch_ID`, `Status`, **`Revenue_Method`** |
+| **Daily_Logs** | 79 | `Log_Date`, `Machine_ID`, `Branch_ID`, `Revenue`, `Meter_Diff`, `Cash_Collected`, `Is_Collection`, `Timestamp` |
 | Employees | 13 | `Emp_Name`, `Branch_ID`, `Status` |
-| Deposits / Expenses / Inventory / Settings | 0 | — ยังว่าง |
+| Cash_Deposits / Expenses / Inventory_Logs / Settings | 0 | ยังว่าง |
 
-สาขาที่ Active: TPS-01 โกรเซอรี่เมือง · TPS-02 ไลม์ไลท์ · TPS-03 โรบินสันฉลอง ·
-TPS-04 เซ็นทรัลเชิงทะเล · TPS-05 จังซีลอน · TPS-06A/06B เซ็นทรัลภูเก็ต · TPS-07 เซ็นทรัลป่าตอง
-
-ฝั่ง TargetBot มีครบสำหรับ Progress Bar: `R0` รายสาขา, `seasonal_index` 12 เดือน,
-แท็บ Target งวด `2569-09` คำนวณไว้แล้ว, `MILESTONES = 50,80,100,110`, `weeks_in_month`
+ประเภทตู้ตาม `Revenue_Method`: **METER 185 ตู้ · CAPSULE 21 ตู้** (`Coin_Price` = 10 ทุกตู้)
+ประเภทตามป้าย: ตู้คีบ 142 · ตู้กาชาปอง 34 · เครื่องเล่น 28 · ตู้โมเดลกล่องสุ่ม 2
 
 ## 2. สรุปว่าทำอะไรได้/ไม่ได้
 
 | หน้าที่ต้องการ | สถานะ | หมายเหตุ |
 | :-- | :-: | :-- |
-| ยอดวันนี้ + นาฬิกา | ✅ | จาก `Revenue` รายแถว |
-| จุดเช็คพอยต์รอบเก็บเงิน | ✅ | `Is_Collection` + `Cash_Collected` + `Timestamp` |
-| ยอด 7 วัน + เทียบสัปดาห์ก่อน | ✅ | group by `Log_Date` |
-| ยอดเดือน + % เทียบเป้า + milestone | ✅ | Target งวด 2569-09 พร้อมใช้ |
+| ยอดวันนี้ + นาฬิกา | ✅ | ผลรวม `Revenue` ตรงกับการ์ด LINE |
+| จุดเช็คพอยต์รอบเก็บเงิน | ✅ | `Cash_Collected` + กติกา CAPSULE (ดูข้อ 3.1) |
+| ยอด 7 วัน + เทียบสัปดาห์ก่อน | ✅ | แหล่งเดียวกับ `lnTrend_()` |
+| ยอดเดือน + % เป้า + milestone | ✅ | Target งวด 2569-09 พร้อมใช้ |
 | คาดการณ์ยอดปิดเดือน (pace) | ✅ | MTD ÷ วันที่ผ่าน × วันในเดือน |
-| ตารางงานรายสัปดาห์ | ⚠️ | ไม่มีแท็บกะใน Master DB — ต้องต่อกับ web app เดิมผ่าน `SCHEDULE_URL` |
-| กำไร/ค่าใช้จ่ายต่อสาขา | ❌ | แท็บ Expenses/Deposits ว่าง — ไม่อยู่ในรอบนี้ |
-| ยอดรายตู้บนจอ | ❌ (ตั้งใจ) | จอ 320×240 อ่านไม่ไหว 207 ตู้ — ดูใน AppSheet แทน |
+| ตารางงานรายสัปดาห์ | ⚠️ | ไม่มีแท็บกะใน Master DB — ต้องต่อ `SCHEDULE_URL` |
+| กำไร/ค่าใช้จ่ายต่อสาขา | ❌ | Expenses/Cash_Deposits ยังว่าง |
+| ยอดรายตู้บนจอ | ❌ (ตั้งใจ) | จอ 320×240 อ่านไม่ไหว 206 ตู้ — ดูใน AppSheet/PDF แทน |
 
-## 3. ช่องโหว่ข้อมูลที่ระบบจัดการให้แล้ว
+## 3. กติกาที่ระบบเดิมใช้จริง (จอต้องทำตามเป๊ะ)
 
-| # | ปัญหา | ผลถ้าไม่แก้ | ทางที่ใช้ |
-| :-: | :-- | :-- | :-- |
-| 1 | รหัสสาขาคนละสคีมา: Master DB = `TPS-xx`, TargetBot = `TSP-xx` | join ไม่ติด เป้าไม่ขึ้น | `TSP_normBranch_()` แปลงเป็นรูปเดียว |
-| 2 | TargetBot ยุบหน่วย: `TPS-06A+06B → TSP-06`, `TPS-05+TPS-07 → TSP-57` | เทียบเป้าผิดสาขา | `TSP_targetUnit_()` + ธง `sh:1` บนจอว่า "เป้ารวมหน่วย" |
-| 3 | แถวอ่านมิเตอร์ครั้งแรก `Meter_Previous = 0` | ยอดพุ่งผิดปกติ | `TSP_rowRevenue_()` ตัดเป็น 0 + warning `first-reading` |
-| 4 | `Meter_Diff` ติดลบ (รีเซ็ต/เปลี่ยนบอร์ด) | ยอดติดลบ | ตัดเป็น 0 + warning `meter-reset` |
-| 5 | ตู้ไม่มี `Coin_Price` | fallback คำนวณไม่ได้ | ข้าม + warning `no-coin-price` |
-| 6 | แท็บ Target มีแถวซ้ำ (งวด 2569-08 ซ้ำ 3 ชุด) | เป้าถูกนับซ้ำ | ยึดแถวท้ายสุดของคู่ (period, branch_code) |
-| 7 | ไม่มีเป้ารายวัน | จอหน้า 1 ไม่มี Progress Bar | v1 กระจายเท่า ๆ `Target_month ÷ days_in_month` |
-| 8 | `Log_Date` เป็นสตริง `07/28/2026` (MDY) | วันที่เพี้ยน | `TSP_toDate_()` + สวิตช์ `DATE_ORDER` |
-| 9 | ชื่อแท็บอาจถูกแก้ | สคริปต์พัง | ค้นแท็บจาก "ลายเซ็นหัวคอลัมน์" ไม่ใช่ชื่อแท็บ |
+### 3.1 แถวที่ "ต้องมีเงินสด" — ห้ามใช้ `Is_Collection` เดี่ยว ๆ
 
-## 4. เรื่องที่ยังต้องตัดสินใจ (ไม่ใช่ปัญหาโค้ด)
+`Code.gs > shouldHaveCash_()` ระบุว่าต้องตรงกับ Show_If / Require_If ของ `Cash_Collected` ใน AppSheet:
+
+```
+OR([Is_Collection], [Machine_ID].[Revenue_Method] <> "METER")
+```
+
+ตู้ CAPSULE ถูกซ่อนช่องติ๊กไว้ `Is_Collection` จึงเป็น FALSE เสมอทั้ง 21 ตู้
+ถ้ากรองด้วย `Is_Collection` อย่างเดียว **เงินสดจากตู้ไข่จะหายทั้งหมด**
+→ ระบบมอนิเตอร์ใช้ `TSP_shouldHaveCash_()` ที่คัดลอกกติกานี้มา และมีเทสต์กำกับไว้
+
+### 3.2 รายได้ = ผลรวมคอลัมน์ `Revenue` ล้วน
+
+`buildBranchData_()` และ `sumRevenue_()` ใช้ `rev += o.rev` ไม่มีการคูณ `Meter_Diff × Coin_Price`
+จอจึงต้องไม่คำนวณเอง ไม่งั้นตัวเลขจะมากกว่าการ์ด LINE และ PDF
+(`Code.gs` บันทึกไว้ว่า median รายได้ต่อแถว = 0 และ 57% ของแถวเป็น 0 — เป็นเรื่องปกติของธุรกิจนี้)
+
+แถวที่ `Revenue = 0` ทั้งที่ `Meter_Diff > 0` จะถูกนับเป็น warning `rev-missing` ขึ้นบนจอ
+เพื่อให้เห็นว่ามีแถวที่ AppSheet ไม่ได้คำนวณให้ — แต่ **ไม่เอาไปบวกในยอด**
+
+### 3.3 ปี พ.ศ. ที่หลุดลงชีต
+
+`Code.gs` มี `fixBuddhistYear_()` + `repairBuddhistDates()` เพราะ AppSheet เคยเขียนปี **2569**
+ลงชีตจริง (บันทึกไว้ว่าเจอ 30 ก.ค. 2026) ถ้าไม่แปลง แถวนั้นจะหลุดออกนอกทุกช่วงเวลาและยอดหายเงียบ ๆ
+→ `TSP_toDate_()` / `TSP_toDateTime_()` ของมอนิเตอร์แปลงให้ทั้งกรณี Date object, สตริง และ serial number
+
+### 3.4 การตีความวันที่แบบสตริงยังไม่ตรงกันในระบบเดิม
+
+| ที่ | สตริง `d/m/Y` ถูกอ่านเป็น |
+| :-- | :-- |
+| `TSP_Unified_Report.gs > toDate_()` | **DMY** |
+| `Code.gs > toDate_()` | ปล่อยให้ JS ตีความ = **MDY** |
+| มอนิเตอร์ | ตัวไหนเกิน 12 = วัน ถ้าชี้ขาดไม่ได้ใช้ `DATE_ORDER` (ค่าเริ่มต้น MDY) |
+
+ในทางปฏิบัติจะไม่ต่างกัน **ถ้าเซลล์เป็น Date จริง** (ซึ่งเป็นกรณีปกติ — ชีตตั้ง locale แบบ en_US จึงแสดง `07/28/2026`)
+มอนิเตอร์ยังส่ง `Log_Date` ผ่าน `toDate_()` ของเอนจินเดิมก่อนเสมอ เพื่อไม่ให้ตีความต่างจากรายงาน
+
+## 4. ช่องโหว่ข้อมูลที่ระบบจัดการให้แล้ว
+
+| # | ปัญหา | ทางที่ใช้ |
+| :-: | :-- | :-- |
+| 1 | รหัสสาขาคนละสคีมา `TPS-xx` ↔ `TSP-xx` | `TSP_normBranch_()` |
+| 2 | TargetBot ยุบหน่วย `TPS-06A+06B → TSP-06`, `TPS-05+TPS-07 → TSP-57` | `TSP_targetUnit_()` + ธง `sh:1` บนจอ |
+| 3 | แท็บ Target มีแถวซ้ำ (งวด 2569-08 ซ้ำ 3 ชุด) | ยึดแถวท้ายสุดของคู่ (period, branch_code) |
+| 4 | ไม่มีเป้ารายวัน | v1 กระจายเท่า ๆ `เป้าเดือน ÷ จำนวนวัน` |
+| 5 | แถวเก็บเงินที่ยังไม่กรอกจำนวน | warning `cash-missing` |
+
+## 5. เรื่องที่ต้องตัดสินใจ (ไม่ใช่ปัญหาโค้ด)
 
 1. **ยอดไม่ตรงที่ TargetBot เตือนไว้เอง** — เซ็นทรัลภูเก็ต ส.ค. 2569 รายสัปดาห์รวม 74,020
    แต่ยอดรวมเดือนเขียนไว้ 71,000 (ต่าง 3,020 บาท) ต้องแก้ที่ไฟล์ต้นทาง ระบบไม่เดาให้
-2. **แท็บ Settings (Key/Value) ใน Master DB ว่าง** — ควรใช้เก็บ config ระดับร้าน
-3. **Daily_Logs มี 79 แถว เริ่ม 28/07/2026** — ยอดย้อนหลังยังสั้น กราฟ 7 วันจะเต็มจริงเมื่อคีย์ครบทุกวัน
+2. **แท็บ Settings / Config ใน Master DB ว่าง** — ควรใช้เก็บ config ระดับร้าน
+3. **Daily_Logs เริ่ม 28/07/2026** — กราฟ 7 วันจะเต็มจริงเมื่อคีย์ครบทุกวัน
 
-## 5. ข้อจำกัดฝั่งเทคนิค
+## 6. ข้อจำกัดฝั่งเทคนิค
 
 **Apps Script**
-- ตั้ง HTTP header เองไม่ได้ → ใช้ ETag/304 ไม่ได้ เปลี่ยนมาใช้กลไก `?h=<hash>` แทน (ดู `02-api-contract.md`)
-- โควตาบัญชี @gmail ≈ 90 นาที execution/วัน → poll 60 วิ = 1,440 ครั้ง/วัน ต้องพึ่ง `CacheService` (TTL 90 วิ)
-- ถ้าเปลี่ยนเป็น poll 30 วิ ให้ลด TTL ตามกัน ไม่งั้นจอค้างข้อมูลเก่า
+- ตั้ง HTTP header เองไม่ได้ → ใช้ ETag/304 ไม่ได้ เปลี่ยนมาใช้ `?h=<hash>` แทน
+- **มี `doGet` ได้ตัวเดียวต่อโปรเจกต์** — โปรเจกต์ Master DB มีอยู่แล้ว (redirect ไป Dashboard)
+  จึงต้องรวมเป็น router เดียว (ดู `02-api-contract.md`)
+- โควตาบัญชี @gmail ≈ 90 นาที execution/วัน และแชร์กับบอท LINE
+  → poll 60 วิ + `CacheService` 90 วิ + กลไก `?h=` (ปกติไม่แตะชีตเลยถ้ายอดไม่ขยับ)
+- `TSP_monLogs_()` อ่าน Daily_Logs ทั้งแท็บเข้าหน่วยความจำ — ที่ 79 แถวไม่มีปัญหา
+  ถ้าโตเกิน ~50,000 แถวค่อยเปลี่ยนไปกรองด้วย `dlIndex_().byBranch`
 
 **ฮาร์ดแวร์**
-- ESP32-S3-N16R8: flash 16MB / PSRAM 8MB — sprite 3 ชั้น (320×240×2B = 150KB/ชั้น) ใช้ ~450KB สบาย ๆ
-- สาย IDC ไปจอมี 8 เส้น (`SDA SCL CS RS RST BLK VCC GND`) — **ไม่มี MISO** จึงอ่าน driver ID จากจอไม่ได้
-  ต้องตั้ง `PANEL_ILI9341` ใน `config.h` ให้ตรงรุ่นเอง
-- fade ทำที่ framebuffer (blend RGB565) ไม่ใช่การหรี่ backlight — BLK สงวนไว้หรี่จอกลางคืน
-- ฟอนต์ไทยไม่มีใน LovyanGFX → ค่าเริ่มต้นใช้ป้ายภาษาอังกฤษ (`HAS_THAI_FONT 0`) ตัวเลขทั้งหมดอ่านได้ปกติ
+- ESP32-S3-N16R8: flash 16MB / PSRAM 8MB — sprite 3 ชั้น (320×240×2B) ใช้ ~450KB
+- สาย IDC 8 เส้น (`SDA SCL CS RS RST BLK VCC GND`) — ไม่มี MISO จึงอ่าน driver ID จากจอไม่ได้
+- fade ทำที่ framebuffer (blend RGB565) ไม่ใช่หรี่ backlight — BLK สงวนไว้หรี่จอกลางคืน
+- ฟอนต์ไทยไม่มีใน LovyanGFX → ค่าเริ่มต้นใช้ป้ายอังกฤษ (`HAS_THAI_FONT 0`) ตัวเลขอ่านได้ครบปกติ

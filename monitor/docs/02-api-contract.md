@@ -3,27 +3,26 @@
 ## 1. Endpoint
 
 ```
-GET {WEB_APP_URL}/exec?k=<token>&b=<branch>[&h=<hash เดิม>]
+GET {WEB_APP_URL}/exec?route=monitor&k=<token>&b=<branch>[&h=<hash เดิม>]
 ```
 
 | พารามิเตอร์ | ค่า | ความหมาย |
 | :-- | :-- | :-- |
-| `k` | บังคับ | token ที่ตั้งไว้ใน Script Property `MONITOR_TOKEN` ไม่ตรง → `{"e":"auth"}` |
-| `b` | `TPS-03` / `ALL` | สาขาที่จอนี้แสดง (ค่าเริ่มต้น `ALL`) |
-| `h` | ไม่บังคับ | hash ที่จอถืออยู่ ถ้าตรงกับของใหม่ server ตอบ `{"nc":1,"ts":"..."}` |
+| `route` | `monitor` | บังคับ — ไม่ใส่จะได้พฤติกรรมเดิม (redirect ไป Dashboard) |
+| `k` | บังคับ | token ใน Script Property `MONITOR_TOKEN` ไม่ตรง → `{"e":"auth"}` |
+| `b` | `TPS-03` / `ALL` | สาขาที่จอนี้แสดง |
+| `h` | ไม่บังคับ | hash ที่จอถืออยู่ ถ้าตรงกับของใหม่ ตอบ `{"nc":1,"ts":"..."}` |
 
-> **ทำไมไม่ใช้ ETag/304** — Apps Script Web App กำหนด HTTP header เองไม่ได้
-> จึงย้ายกลไก "ไม่เปลี่ยนก็ไม่ต้องอ่านใหม่" มาไว้ใน body ผ่าน `h`/`nc` แทน
+> **ทำไมไม่ใช้ ETag/304** — Apps Script Web App ตั้ง HTTP header เองไม่ได้
 > `h` คำนวณจาก payload ทั้งก้อน **ยกเว้น `ts`** เวลาที่เดินไปเรื่อย ๆ จึงไม่ทำให้ hash เปลี่ยน
 
-Deploy: **Execute as = Me**, **Who has access = Anyone** (URL + token คือการป้องกันชั้นเดียว)
-ห้ามใส่ `Manager_Email`, `Recorded_By`, `LINE_Group_ID` ลงใน payload
+**ห้ามใส่ลง payload:** `Manager_Email`, `Recorded_By`, `LINE_Group_ID`
 
 ## 2. รูปแบบ payload
 
 ```jsonc
 {
-  "v": 1,                          // เวอร์ชันสัญญา เปลี่ยนเมื่อ breaking change
+  "v": 1,
   "b": "TPS-03",
   "bn": "โรบินสันฉลอง",
   "nm": 24,                        // จำนวนตู้ Active ของสาขานี้
@@ -39,7 +38,7 @@ Deploy: **Execute as = Me**, **Who has access = Anyone** (URL + token คือ�
     "cash": 180000, "ed": 16, "dm": 30
   },
   "s": { "hdr": ["จ","อ","พ","พฤ","ศ","ส","อา"], "rows": [["ไอริน","D","D","OFF","D","D","N","N"]] },
-  "wn": ["first-reading:2"],
+  "wn": ["rev-missing:2"],
   "h": "1a2b3c4d",
   "ts": "2026-09-16 14:32"
 }
@@ -52,39 +51,57 @@ Deploy: **Execute as = Me**, **Who has access = Anyone** (URL + token คือ�
 | `w.v[]` | ยอด 7 วันเรียงเก่า→ใหม่ ตัวสุดท้าย = วันนี้ |
 | `m.fs` | `G` ≥100% · `Y` 90–99.9% · `R` <90% · `N` ไม่มีเป้า |
 | `m.sh` | 1 = สาขานี้ใช้เป้ารวมกับสาขาคู่ (TSP-06 / TSP-57) |
-| `wn[]` | `code:count` — `first-reading`, `meter-reset`, `no-coin-price`, `bad-date`, `no-target`, `target-shared` |
+| `wn[]` | `code:count` — `rev-missing`, `cash-missing`, `bad-date`, `no-target`, `target-shared` |
 
 ขนาด payload ปกติ ~1.2–1.8 KB (ไม่รวมตารางกะ)
 
-## 3. สูตรคำนวณ
+## 3. สูตรคำนวณ — ยึดตามเอนจินเดิมทุกข้อ
 
-| ค่า | สูตร | ฟังก์ชัน |
+| ค่า | สูตร | อ้างอิงของเดิม |
 | :-- | :-- | :-- |
-| รายได้ต่อแถว | `Revenue` ถ้า > 0, ไม่งั้น `Meter_Diff × Coin_Price` | `TSP_rowRevenue_()` |
-| กัน first reading | `Meter_Previous = 0` และไม่เคยมี log ของตู้นั้น → 0 | `TSP_rowRevenue_()` |
-| มิเตอร์รีเซ็ต | `Meter_Diff < 0` → 0 + warning | `TSP_rowRevenue_()` |
-| รายได้รายวัน | `Σ` รายได้ต่อแถวของสาขานั้นในวันนั้น | `TSP_aggregate_()` |
-| รอบเช็คพอยต์ | แถว `Is_Collection = TRUE` ที่ `Timestamp` ห่างกัน ≤ 45 นาที = รอบเดียวกัน | `TSP_clusterCheckpoints_()` |
-| ส่วนต่างเงินสด | `Σ Cash_Collected − รายได้วันนั้น` ; ธงแดงเมื่อ `|ส่วนต่าง| / รายได้ > 3%` | `TSP_buildPayload_()` |
-| เป้าเดือน | แท็บ Target งวด `พ.ศ.-MM` (ยึดแถวท้ายสุด) ; fallback `R0 × seasonal_index` | `TSP_findTarget_()` |
-| เป้ารายวัน | `เป้าเดือน ÷ จำนวนวันในเดือน` | `TSP_buildPayload_()` |
-| % ของเป้า | `ยอด ÷ เป้า × 100` (เป้า ≤ 0 → `null`) | `TSP_pct_()` |
-| คาดการณ์ปิดเดือน | `MTD ÷ วันที่ผ่านไป × จำนวนวันในเดือน` | `TSP_pace_()` |
-| milestone | ค่ามากสุดใน `MILESTONES` ที่ % ผ่านแล้ว | `TSP_milestone_()` |
-| hash | FNV-1a 32-bit ของ payload (ไม่รวม `ts`) | `TSP_hash_()` |
+| รายได้ต่อแถว | คอลัมน์ `Revenue` ล้วน (ไม่คูณ `Meter_Diff × Coin_Price`) | `buildBranchData_` |
+| รายได้รายวัน | `Σ Revenue` ของสาขานั้นในวันนั้น | `sumRevenue_` |
+| แถวที่ต้องมีเงินสด | `Revenue_Method <> 'METER'` **หรือ** `Is_Collection = TRUE` | `Code.gs > shouldHaveCash_` |
+| รอบเช็คพอยต์ | แถวที่มีเงินสด และ `Timestamp` ห่างกัน ≤ 45 นาที = รอบเดียวกัน | — (ของใหม่) |
+| ส่วนต่างเงินสด | `Σ Cash_Collected − รายได้วันนั้น` ; ธงแดงเมื่อ `|ส่วนต่าง| / รายได้ > 3%` | — (ของใหม่) |
+| ปี พ.ศ. | ปี > 2400 → ลบ 543 | `Code.gs > fixBuddhistYear_` |
+| เป้าเดือน | แท็บ Target งวด `พ.ศ.-MM` (ยึดแถวท้ายสุด) ; fallback `R0 × seasonal_index` | TargetBot |
+| เป้ารายวัน | `เป้าเดือน ÷ จำนวนวันในเดือน` | — (ของใหม่) |
+| % ของเป้า | `ยอด ÷ เป้า × 100` (เป้า ≤ 0 → `null`) | — |
+| คาดการณ์ปิดเดือน | `MTD ÷ วันที่ผ่านไป × จำนวนวันในเดือน` | — |
+| milestone | ค่ามากสุดใน `MILESTONES` ที่ % ผ่านแล้ว | TargetBot `MILESTONES` |
+| hash | FNV-1a 32-bit ของ payload (ไม่รวม `ts`) | — |
 
 ## 4. ติดตั้ง
 
-1. เปิด `TSP_Master_Database Ver.2` → Extensions → Apps Script (หรือสร้างโปรเจกต์ standalone)
-2. วางไฟล์ `TSP_Monitor_Calc.gs` และ `TSP_Monitor_API.gs`
-3. แก้ token ในฟังก์ชัน `TSP_setup()` แล้วรัน 1 ครั้ง (จะเขียนค่าลง Script Properties)
-4. รัน `TSP_test_sheets()` → ต้องเจอครบ Daily_Logs / Machines / Branches / Target / Branch / SeasonalIndex
-5. รัน `TSP_test_today()` → ดู payload ใน Execution log แล้วเทียบยอดกับชีตด้วยมือ
-6. Deploy → New deployment → Web app → Execute as **Me** / Access **Anyone** → คัดลอก URL
-7. เปิด `monitor/apps-script/preview.html` วาง URL + `?k=...&b=TPS-03` กดโหลด → ตรวจ layout ทั้ง 5 หน้า
+ไฟล์ทั้งสองต้องอยู่ใน **โปรเจกต์ Apps Script เดียวกับ `TSP_Unified_Report.gs`**
+(ผูกกับ TSP_Master_Database Ver.2) เพราะใช้ `table_()` `toDate_()` `branchNames_()` `SH` `C` `CFG` ร่วมกัน
+
+1. วาง `TSP_Monitor_Calc.gs` + `TSP_Monitor_Route.gs` ในโปรเจกต์นั้น
+2. ใน `TSP_Unified_Report.gs` เปลี่ยนชื่อ `doGet` เดิม:
+   ```diff
+   -function doGet() {
+   +function TSP_dashboardRedirect_() {
+      return HtmlService.createHtmlOutput( ... );   // เนื้อในไม่ต้องแก้
+    }
+   ```
+   *ถ้าลืมข้อนี้ระบบยังทำงานได้ — router จะสร้าง redirect จาก `DASHBOARD_URL` ให้เอง*
+3. แก้ token ใน `TSP_monSetup()` แล้วรัน 1 ครั้ง
+4. รัน `TSP_test_columns()` → ต้องเจอครบ 8 คอลัมน์ และเห็นจำนวน METER/CAPSULE
+5. รัน **`TSP_test_vs_report()`** → ต้องขึ้น `✅ ตรงกันทุกสาขา`
+   (เทียบยอดจอกับ `sumRevenue_()` และ `lnTrend_()` — ถ้าไม่ตรง ห้าม deploy)
+6. Deploy: **Manage deployments → ✏️ → Version: New version → Deploy**
+   ⚠ ห้ามกด "New deployment" เพราะจะได้ URL ใหม่ แล้ว LINE webhook เดิมจะชี้ผิดที่
+7. ทดสอบหลัง deploy 3 อย่าง:
+   - เปิด `{WEB_APP_URL}/exec` เปล่า ๆ → ต้อง redirect ไป Dashboard เหมือนเดิม
+   - ส่ง "ยอดขาย" เข้ากลุ่ม LINE → การ์ดต้องขึ้นปกติ
+   - เปิด `?route=monitor&k=...&b=TPS-03` → ต้องได้ JSON
+8. เอา URL ไปวางใน `monitor/apps-script/preview.html` ตรวจ layout ทั้ง 5 หน้า
 
 ## 5. เปลี่ยนสัญญาเมื่อไหร่ต้องขยับอะไร
 
 แก้คีย์ใน payload → ต้องแก้ 3 จุดพร้อมกัน:
 `TSP_Monitor_Calc.gs` (สร้าง) · `preview.html` (ตัวอย่าง + การวาด) · `net_client.cpp` (parse)
-เพิ่มคีย์ใหม่อย่างเดียวไม่ต้องขยับ `v` — ลบหรือเปลี่ยนความหมายให้เพิ่ม `v` เป็น 2
+เพิ่มคีย์ใหม่ไม่ต้องขยับ `v` — ลบหรือเปลี่ยนความหมายให้เพิ่ม `v` เป็น 2
+
+ถ้ามีคนแก้ `dlIndex_()` / `buildBranchData_()` / กติกาเงินสดในอนาคต **ให้รัน `TSP_test_vs_report()` ทุกครั้ง**

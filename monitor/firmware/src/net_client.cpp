@@ -34,12 +34,11 @@ bool net_syncTime() {
 /** แปลงรหัส warning จาก API เป็นข้อความสั้นที่จอแสดงได้ */
 static void appendWarn(char *dst, size_t cap, const char *code) {
   const char *txt = code;
-  if (strncmp(code, "first-reading", 13) == 0)      txt = HAS_THAI_FONT ? "อ่านมิเตอร์ครั้งแรก" : "first meter read";
-  else if (strncmp(code, "meter-reset", 11) == 0)   txt = HAS_THAI_FONT ? "มิเตอร์รีเซ็ต" : "meter reset";
-  else if (strncmp(code, "no-coin-price", 13) == 0) txt = HAS_THAI_FONT ? "ไม่มีราคาเหรียญ" : "no coin price";
+  if (strncmp(code, "rev-missing", 11) == 0)        txt = HAS_THAI_FONT ? "มิเตอร์เดินแต่ไม่มียอด" : "revenue not calculated";
+  else if (strncmp(code, "cash-missing", 12) == 0)  txt = HAS_THAI_FONT ? "ยังไม่กรอกเงินสด" : "cash not entered";
+  else if (strncmp(code, "bad-date", 8) == 0)       txt = HAS_THAI_FONT ? "วันที่ผิดรูปแบบ" : "bad date rows";
   else if (strncmp(code, "no-target", 9) == 0)      txt = HAS_THAI_FONT ? "ยังไม่ตั้งเป้า" : "no target set";
   else if (strncmp(code, "target-shared", 13) == 0) txt = HAS_THAI_FONT ? "ใช้เป้ารวมกับสาขาคู่" : "shared target";
-  else if (strncmp(code, "bad-date", 8) == 0)       txt = HAS_THAI_FONT ? "วันที่ผิดรูปแบบ" : "bad date rows";
   size_t len = strlen(dst);
   if (len && len + 3 < cap) { strlcat(dst, " . ", cap); len = strlen(dst); }
   strlcat(dst, txt, cap);
@@ -48,7 +47,7 @@ static void appendWarn(char *dst, size_t cap, const char *code) {
 int net_fetch(MonitorData &out) {
   if (!net_isConnected() && !net_begin()) return NET_ERR_WIFI;
 
-  String url = String(API_BASE) + "?k=" + API_TOKEN + "&b=" + API_BRANCH;
+  String url = String(API_BASE) + "?route=monitor&k=" + API_TOKEN + "&b=" + API_BRANCH;
   if (out.valid && out.hash[0]) url += "&h=" + String(out.hash);
 
   WiFiClientSecure client;

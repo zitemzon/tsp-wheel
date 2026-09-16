@@ -8,7 +8,8 @@
 #define WIFI_SSID        "ชื่อ WiFi ร้าน"
 #define WIFI_PASS        "รหัสผ่าน"
 
-/* URL ของ Web App (ลงท้ายด้วย /exec) + token ที่ตั้งไว้ใน Script Properties */
+/* URL ของ Web App (ลงท้ายด้วย /exec) — ตัวเดียวกับที่ LINE webhook ใช้
+   เฟิร์มแวร์จะเติม ?route=monitor ให้เอง ไม่ต้องใส่มาในนี้ */
 #define API_BASE         "https://script.google.com/macros/s/XXXXXXXXXXXX/exec"
 #define API_TOKEN        "token ที่ตั้งไว้ใน MONITOR_TOKEN"
 #define API_BRANCH       "TPS-03"        /* หรือ "ALL" เพื่อดูยอดรวมทุกสาขา */

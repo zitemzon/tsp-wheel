@@ -30,7 +30,7 @@
   <canvas class="screen" id="cv" width="320" height="240"></canvas>
 
   <div class="bar">
-    <input id="url" placeholder="วาง exec URL พร้อม ?k=token&b=TPS-03 (เว้นว่าง = ใช้ข้อมูลตัวอย่าง)">
+    <input id="url" placeholder="วาง exec URL พร้อม ?route=monitor&amp;k=token&amp;b=TPS-03 (เว้นว่าง = ใช้ข้อมูลตัวอย่าง)">
     <button class="primary" id="load">โหลด</button>
     <button id="prev">◀</button>
     <button id="next">▶</button>
@@ -64,7 +64,7 @@ let D = {
   c:{ l:[{t:'09:40',a:3200,n:6},{t:'13:15',a:4100,n:8},{t:'18:05',a:2500,n:5}], cash:9800, df:-2650, fl:1 },
   w:{ v:[9800,11200,8600,13400,15100,12900,12450], s:83450, pv:76200, ch:9.5 },
   m:{ pd:'2569-09', r:186500, t:91000, p:204.9, f:349687, fs:'G', ms:110, sh:0, cash:180000, ed:16, dm:30 },
-  wn:['first-reading:2'],
+  wn:['rev-missing:2'],
   s:{ hdr:['จ','อ','พ','พฤ','ศ','ส','อา'], rows:[['ไอริน','D','D','OFF','D','D','N','N'],['น้องเบส','N','N','D','OFF','N','D','D'],['น้องโรบิน','OFF','D','D','D','OFF','N','D']] }
 };
 
@@ -77,9 +77,8 @@ function cut(g, txt, maxW){
   return t;
 }
 const WARN_TH = {
-  'first-reading':'อ่านมิเตอร์ครั้งแรก {n} ตู้',
-  'meter-reset':'มิเตอร์รีเซ็ต {n} ตู้',
-  'no-coin-price':'ไม่มีราคาเหรียญ {n} ตู้',
+  'rev-missing':'มิเตอร์เดินแต่ไม่มียอด {n} แถว',
+  'cash-missing':'ยังไม่กรอกเงินสด {n} แถว',
   'bad-date':'วันที่ผิดรูปแบบ {n} แถว',
   'no-target':'ยังไม่ตั้งเป้าเดือนนี้',
   'target-shared':'ใช้เป้ารวมกับสาขาคู่'
