@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TSP Monitor — Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071320; --panel:#0F2740; --ink:#E8F0F8; --ink2:#9FB4C8; --line:#1E3B58;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Kanit',system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 16px 48px}
+  h1{font-size:16px;font-weight:600;letter-spacing:2px;color:var(--ink2);margin:0}
+  .screen{width:960px;max-width:100%;image-rendering:pixelated;border-radius:10px;
+          border:10px solid #10151c;box-shadow:0 18px 50px rgba(0,0,0,.6);background:#000;display:block}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;max-width:960px;width:100%}
+  input,button,select{font-family:inherit;font-size:13px;padding:9px 12px;border-radius:8px;
+        border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+  input{flex:1;min-width:280px}
+  button{cursor:pointer;font-weight:600}
+  button.primary{background:#4FA3E3;color:#06121f;border-color:#4FA3E3}
+  .note{font-size:12px;color:var(--ink2);max-width:960px;line-height:1.8}
+  code{background:var(--panel);padding:2px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>TSP REVENUE MONITOR — 320 × 240 PREVIEW</h1>
+  <canvas class="screen" id="cv" width="320" height="240"></canvas>
+
+  <div class="bar">
+    <input id="url" placeholder="วาง exec URL พร้อม ?k=token&b=TPS-03 (เว้นว่าง = ใช้ข้อมูลตัวอย่าง)">
+    <button class="primary" id="load">โหลด</button>
+    <button id="prev">◀</button>
+    <button id="next">▶</button>
+    <button id="auto">⏸ หยุดสลับหน้า</button>
+  </div>
+
+  <div class="note">
+    หน้านี้เป็น <b>สเปกภาพของเฟิร์มแวร์</b> — ฟังก์ชัน <code>drawPage1..5()</code> ใช้พิกัดชุดเดียวกับ
+    <code>monitor/firmware/src/ui_pages.cpp</code> แก้ layout ที่นี่ให้พอใจก่อน แล้วค่อยย้ายตัวเลขพิกัดไปฝั่ง C++<br>
+    ถ้าเรียก exec URL จากเบราว์เซอร์แล้วติด CORS ให้เปิด URL ตรง ๆ ในแท็บใหม่ คัดลอก JSON มาวางแทน (ปุ่มโหลดรองรับการวาง JSON ดิบในช่องเดียวกัน)
+  </div>
+
+<script>
+/* ---------- โทนสี (RGB565-friendly) ---------- */
+const CO = {
+  bg:'#071320', head:'#0F2740', line:'#1E3B58',
+  ink:'#E8F0F8', ink2:'#9FB4C8', ink3:'#5D7590',
+  data:'#4FA3E3', dataHi:'#8ACDF7',        // ฮิวเดียวสำหรับข้อมูล (single series)
+  good:'#2FBF71', warn:'#F2B01E', crit:'#E5484D',   // สีสถานะ สงวนไว้เฉพาะ pace/flag
+  track:'#16324C'
+};
+const W=320, H=240;
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const off=[document.createElement('canvas'),document.createElement('canvas')];
+off.forEach(c=>{c.width=W;c.height=H;});
+
+/* ---------- ข้อมูลตัวอย่าง (โครงเดียวกับที่ API คืนมา) ---------- */
+let D = {
+  v:1, b:'TPS-03', bn:'โรบินสันฉลอง', nm:24, ts:'2026-09-16 14:32', h:'1a2b3c4d',
+  d:{ r:12450, t:3033, p:410.5, n:12 },
+  c:{ l:[{t:'09:40',a:3200,n:6},{t:'13:15',a:4100,n:8},{t:'18:05',a:2500,n:5}], cash:9800, df:-2650, fl:1 },
+  w:{ v:[9800,11200,8600,13400,15100,12900,12450], s:83450, pv:76200, ch:9.5 },
+  m:{ pd:'2569-09', r:186500, t:91000, p:204.9, f:349687, fs:'G', ms:110, sh:0, cash:180000, ed:16, dm:30 },
+  wn:['first-reading:2'],
+  s:{ hdr:['จ','อ','พ','พฤ','ศ','ส','อา'], rows:[['ไอริน','D','D','OFF','D','D','N','N'],['น้องเบส','N','N','D','OFF','N','D','D'],['น้องโรบิน','OFF','D','D','D','OFF','N','D']] }
+};
+
+let cutW = 0;
+function cut(g, txt, maxW){
+  let t = String(txt||'');
+  while (t.length && g.measureText(t).width > maxW) t = t.slice(0,-1);
+  if (t.length < String(txt||'').length) t = t.slice(0,-1) + '…';
+  cutW = t ? g.measureText(t).width + 8 : 0;
+  return t;
+}
+const WARN_TH = {
+  'first-reading':'อ่านมิเตอร์ครั้งแรก {n} ตู้',
+  'meter-reset':'มิเตอร์รีเซ็ต {n} ตู้',
+  'no-coin-price':'ไม่มีราคาเหรียญ {n} ตู้',
+  'bad-date':'วันที่ผิดรูปแบบ {n} แถว',
+  'no-target':'ยังไม่ตั้งเป้าเดือนนี้',
+  'target-shared':'ใช้เป้ารวมกับสาขาคู่'
+};
+function warnText(list){
+  return (list||[]).map(w=>{
+    const [k,n] = String(w).split(':');
+    return (WARN_TH[k]||k).replace('{n}', n||'');
+  }).join(' · ');
+}
+const baht = n => (n===null||n===undefined||!isFinite(n)) ? '—' : Math.round(n).toLocaleString('en-US');
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+
+/* ---------- ชิ้นส่วนที่ใช้ซ้ำ ---------- */
+function bg(g){ g.fillStyle=CO.bg; g.fillRect(0,0,W,H); }
+
+function header(g,title){
+  g.fillStyle=CO.head; g.fillRect(0,0,W,24);
+  g.fillStyle=CO.line; g.fillRect(0,24,W,1);
+  g.textBaseline='middle';
+  g.fillStyle=CO.dataHi; g.font='600 12px Kanit,sans-serif'; g.textAlign='left';
+  g.fillText(D.b, 8, 12);
+  const hx = 12 + g.measureText(D.b).width;
+  g.fillStyle=CO.ink; g.font='400 12px Kanit,sans-serif';
+  g.fillText(cut(g, D.bn||'', 120), hx, 12);
+  g.fillStyle=CO.ink3; g.font='400 11px Kanit,sans-serif';
+  g.fillText(title, hx + cutW, 12);
+  g.fillStyle=CO.ink; g.font='600 12px Kanit,sans-serif'; g.textAlign='right';
+  g.fillText((D.ts||'').slice(-5), W-8, 12);
+}
+
+/* แถบความคืบหน้า: ปลายมนรัศมี 4 ยึดฐานซ้าย + ขีด milestone */
+function progress(g,x,y,w,h,pct,marks){
+  g.fillStyle=CO.track; roundRect(g,x,y,w,h,h/2); g.fill();
+  const p = clamp((pct||0)/ (marks? 120:100), 0, 1);
+  if(p>0){ g.fillStyle=CO.data; roundRect(g,x,y,Math.max(h,w*p),h,h/2); g.fill(); }
+  if(marks) marks.forEach(m=>{
+    const mx = x + w*(m/120);
+    g.fillStyle = (pct>=m)? '#06121f' : CO.ink3;
+    g.fillRect(Math.round(mx), y+2, 1, h-4);
+  });
+}
+function roundRect(g,x,y,w,h,r){
+  r=Math.min(r,h/2,w/2); g.beginPath();
+  g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+/* ชิปสถานะ: สี + ไอคอน + ข้อความ เสมอ (ห้ามสื่อด้วยสีอย่างเดียว) */
+function statusChip(g,x,y,fs){
+  const map={G:[CO.good,'✓','ตามเป้า'],Y:[CO.warn,'!','เฉียดเป้า'],R:[CO.crit,'▼','ต่ำกว่าเป้า'],N:[CO.ink3,'–','ไม่มีเป้า']};
+  const [c,ic,tx]=map[fs]||map.N;
+  g.font='600 11px Kanit,sans-serif'; g.textAlign='left'; g.textBaseline='middle';
+  const w = g.measureText(tx).width + 26;
+  g.fillStyle=c; roundRect(g,x,y,w,16,8); g.fill();
+  g.fillStyle='#06121f'; g.fillText(ic, x+7, y+8.5); g.fillText(tx, x+19, y+8.5);
+  return w;
+}
+function pageDots(g,idx,total){
+  const y=H-7;
+  for(let i=0;i<total;i++){
+    g.fillStyle = i===idx? CO.dataHi : CO.line;
+    g.beginPath(); g.arc(W/2-(total-1)*5+i*10, y, i===idx?2.6:2, 0, 6.3); g.fill();
+  }
+}
+
+/* ---------- หน้า 1 : ยอดวันนี้ ---------- */
+function drawPage1(g){
+  bg(g); header(g,'วันนี้');
+  g.textAlign='left'; g.textBaseline='alphabetic';
+  g.fillStyle=CO.ink2; g.font='400 13px Kanit,sans-serif';
+  g.fillText('ยอดขายวันนี้', 14, 52);
+  const heroTxt = baht(D.d.r);
+  g.fillStyle=CO.ink; g.font='800 54px Kanit,sans-serif';
+  g.fillText(heroTxt, 14, 104);
+  const heroW = g.measureText(heroTxt).width;
+  g.fillStyle=CO.ink2; g.font='400 14px Kanit,sans-serif';
+  g.fillText('บาท', 14 + heroW + 8, 104);
+
+  progress(g,14,128,292,16,D.d.p,null);
+  g.fillStyle=CO.ink2; g.font='400 11px Kanit,sans-serif';
+  g.fillText('เป้าวัน ' + baht(D.d.t) + ' บาท', 14, 160);
+  g.textAlign='right'; g.fillStyle=CO.ink;
+  g.font='600 11px Kanit,sans-serif';
+  g.fillText(D.d.p===null?'ไม่มีเป้า':(D.d.p.toFixed(0)+'%'), 306, 160);
+
+  g.textAlign='left'; g.fillStyle=CO.ink3; g.font='400 11px Kanit,sans-serif';
+  g.fillText('บันทึกแล้ว ' + D.d.n + ' รายการ · ' + D.nm + ' ตู้', 14, 182);
+  if(D.wn && D.wn.length){ g.fillStyle=CO.warn; g.fillText(cut(g,'⚠ ' + warnText(D.wn), 292), 14, 200); }
+  pageDots(g,0,5);
+}
+
+/* ---------- หน้า 2 : จุดเช็คพอยต์ ---------- */
+function drawPage2(g){
+  bg(g); header(g,'รอบเก็บเงิน');
+  const L=D.c.l||[];
+  g.textAlign='left'; g.fillStyle=CO.ink2; g.font='400 12px Kanit,sans-serif';
+  g.fillText('เช็คพอยต์วันนี้ ' + L.length + ' รอบ', 14, 48);
+
+  const x0=26, x1=294, y=92;
+  g.fillStyle=CO.line; g.fillRect(x0,y,x1-x0,2);
+  const n=Math.max(L.length,1), done=L.length;
+  if(done>1){ g.fillStyle=CO.data; g.fillRect(x0,y,(x1-x0)*(done-1)/Math.max(n-1,1),2); }
+  L.slice(0,6).forEach((c,i)=>{
+    const cx = x0 + (x1-x0)*(L.length>1? i/(L.length-1) : 0.5);
+    g.fillStyle=CO.bg; g.beginPath(); g.arc(cx,y+1,7,0,6.3); g.fill();
+    g.fillStyle=CO.data; g.beginPath(); g.arc(cx,y+1,5,0,6.3); g.fill();
+    g.fillStyle=CO.ink; g.font='600 11px Kanit,sans-serif'; g.textAlign='center';
+    g.fillText(c.t, cx, y-14);
+    g.fillStyle=CO.ink2; g.font='400 11px Kanit,sans-serif';
+    g.fillText(baht(c.a), cx, y+26);
+  });
+  if(!L.length){ g.textAlign='center'; g.fillStyle=CO.ink3; g.font='400 13px Kanit,sans-serif';
+    g.fillText('ยังไม่มีรอบเก็บเงินวันนี้', W/2, y+8); }
+
+  g.textAlign='left'; g.font='400 12px Kanit,sans-serif';
+  const rows=[['เงินสดที่นับได้',baht(D.c.cash)],['รายได้จากมิเตอร์',baht(D.d.r)],['ส่วนต่าง',(D.c.df>0?'+':'')+baht(D.c.df)]];
+  rows.forEach((r,i)=>{
+    const yy=148+i*22;
+    g.fillStyle=CO.ink2; g.fillText(r[0],14,yy);
+    g.textAlign='right';
+    g.fillStyle = (i===2 && D.c.fl) ? CO.crit : CO.ink;
+    g.font='600 12px Kanit,sans-serif'; g.fillText(r[1]+' ฿',306,yy);
+    g.textAlign='left'; g.font='400 12px Kanit,sans-serif';
+  });
+  if(D.c.fl){ g.fillStyle=CO.crit; g.font='600 11px Kanit,sans-serif';
+    g.fillText('⚠ ส่วนต่างเกิน 3% — ตรวจการนับเงิน', 14, 216); }
+  pageDots(g,1,5);
+}
+
+/* ---------- หน้า 3 : สัปดาห์ ---------- */
+function drawPage3(g){
+  bg(g); header(g,'7 วันล่าสุด');
+  const v=D.w.v||[], max=Math.max(...v,1);
+  const x0=16, bw=38, gap=4, base=158, hMax=84;
+  const dayNames=['จ','อ','พ','พฤ','ศ','ส','อา'];
+  const today=new Date();
+  v.forEach((val,i)=>{
+    const h=Math.max(2, Math.round(hMax*val/max));
+    const x=x0+i*(bw+gap);
+    const isToday = i===v.length-1;
+    g.fillStyle = isToday? CO.dataHi : CO.data;
+    roundRect(g,x,base-h,bw,h,4); g.fill();
+    g.fillStyle=CO.bg; g.fillRect(x+bw,base-h,2,h);           // ช่องว่าง 2px ระหว่างแท่ง
+    g.textAlign='center'; g.font='400 10px Kanit,sans-serif'; g.fillStyle=CO.ink3;
+    const dd=new Date(today); dd.setDate(dd.getDate()-(v.length-1-i));
+    g.fillText(dayNames[(dd.getDay()+6)%7], x+bw/2, base+13);
+    if(isToday || val===max){                                  // ป้ายเฉพาะแท่งสำคัญ
+      g.fillStyle=CO.ink; g.font='600 10px Kanit,sans-serif';
+      g.fillText(Math.round(val/1000)+'k', x+bw/2, base-h-6);
+    }
+  });
+  g.fillStyle=CO.line; g.fillRect(x0,base,W-2*x0,1);
+  g.textAlign='left'; g.fillStyle=CO.ink2; g.font='400 12px Kanit,sans-serif';
+  g.fillText('รวมสัปดาห์นี้', 16, 194);
+  g.fillStyle=CO.ink; g.font='800 20px Kanit,sans-serif';
+  g.fillText(baht(D.w.s), 16, 218);
+  if(D.w.ch!==null && D.w.ch!==undefined){
+    const up=D.w.ch>=0;
+    g.textAlign='right'; g.fillStyle= up?CO.good:CO.crit; g.font='600 13px Kanit,sans-serif';
+    g.fillText((up?'▲ ':'▼ ')+Math.abs(D.w.ch).toFixed(1)+'%', 306, 218);
+    g.fillStyle=CO.ink3; g.font='400 10px Kanit,sans-serif';
+    g.fillText('สัปดาห์ก่อน '+baht(D.w.pv), 306, 196);
+  }
+  pageDots(g,2,5);
+}
+
+/* ---------- หน้า 4 : เดือน + คาดการณ์ ---------- */
+function drawPage4(g){
+  bg(g); header(g,'เดือน '+(D.m.pd||''));
+  g.textAlign='left'; g.fillStyle=CO.ink2; g.font='400 12px Kanit,sans-serif';
+  g.fillText('ยอดสะสม', 14, 50);
+  g.fillStyle=CO.ink; g.font='800 32px Kanit,sans-serif';
+  g.fillText(baht(D.m.r), 14, 82);
+  g.fillStyle=CO.ink3; g.font='400 11px Kanit,sans-serif';
+  g.fillText('เป้า ' + baht(D.m.t) + ' ฿' + (D.m.sh? ' (เป้ารวมหน่วย)':''), 14, 104);
+
+  progress(g,14,116,292,20,D.m.p,[50,80,100,110]);
+  g.font='600 13px Kanit,sans-serif'; g.textAlign='right'; g.fillStyle=CO.ink;
+  g.fillText(D.m.p===null? 'ไม่มีเป้า' : D.m.p.toFixed(1)+'%', 306, 152);
+  g.textAlign='left'; g.fillStyle=CO.ink3; g.font='400 10px Kanit,sans-serif';
+  g.fillText('ผ่านมา '+D.m.ed+'/'+D.m.dm+' วัน · milestone '+D.m.ms+'%', 14, 152);
+
+  g.fillStyle=CO.ink2; g.font='400 12px Kanit,sans-serif';
+  g.fillText('คาดการณ์ปิดเดือน', 14, 182);
+  g.fillStyle=CO.ink; g.font='800 22px Kanit,sans-serif';
+  g.fillText(baht(D.m.f), 14, 208);
+  statusChip(g, 196, 192, D.m.fs);
+  pageDots(g,3,5);
+}
+
+/* ---------- หน้า 5 : ตารางงานสัปดาห์นี้ ---------- */
+function drawPage5(g){
+  bg(g); header(g,'ตารางงานสัปดาห์นี้');
+  const S=D.s;
+  if(!S || !S.rows || !S.rows.length){
+    g.textAlign='center'; g.fillStyle=CO.ink3; g.font='400 13px Kanit,sans-serif';
+    g.fillText('ยังไม่ได้เชื่อมข้อมูลตารางกะ', W/2, 120);
+    g.font='400 11px Kanit,sans-serif';
+    g.fillText('ตั้งค่า SCHEDULE_URL ใน Script Properties', W/2, 142);
+    pageDots(g,4,5); return;
+  }
+  const nameW=78, cw=(W-nameW-16)/7, rows=S.rows.slice(0,6);
+  const rh=Math.min(30,(H-42-26)/rows.length);
+  const top=Math.round(42 + ((H-42-26) - rh*rows.length)/2);
+  g.textAlign='center'; g.font='600 11px Kanit,sans-serif'; g.fillStyle=CO.ink2;
+  (S.hdr||['จ','อ','พ','พฤ','ศ','ส','อา']).forEach((d,i)=> g.fillText(d, 8+nameW+cw*i+cw/2, top-8));
+  g.fillStyle=CO.line; g.fillRect(8,top-2,W-16,1);
+  rows.forEach((r,ri)=>{
+    const y=top+ri*rh;
+    g.textAlign='left'; g.fillStyle=CO.ink; g.font='400 11px Kanit,sans-serif';
+    g.fillText(String(r[0]).slice(0,10), 10, y+rh/2+4);
+    for(let c=0;c<7;c++){
+      const cell=String(r[c+1]||'');
+      const x=8+nameW+cw*c;
+      const on = cell && cell.toUpperCase()!=='OFF' && cell!=='-';
+      g.fillStyle = on? CO.data : CO.track;
+      roundRect(g,x+2,y+3,cw-4,rh-8,4); g.fill();
+      g.fillStyle = on? '#06121f' : CO.ink3;
+      g.textAlign='center'; g.font='600 10px Kanit,sans-serif';
+      g.fillText(cell||'—', x+cw/2, y+rh/2+3.5);
+    }
+  });
+  pageDots(g,4,5);
+}
+
+/* ---------- ลูปสลับหน้าแบบ fade (เหมือนฝั่งเฟิร์มแวร์) ---------- */
+const PAGES=[drawPage1,drawPage2,drawPage3,drawPage4,drawPage5];
+let idx=0, running=true, timer=null;
+const HOLD=8000, FADE=320;
+
+function render(i){ const g=off[0].getContext('2d'); PAGES[i](g); ctx.drawImage(off[0],0,0); }
+function fadeTo(next){
+  const a=off[0].getContext('2d'), b=off[1].getContext('2d');
+  PAGES[idx](a); PAGES[next](b);
+  const t0=performance.now();
+  (function step(now){
+    const k=clamp((now-t0)/FADE,0,1);
+    ctx.globalAlpha=1; ctx.drawImage(off[0],0,0);
+    ctx.globalAlpha=k; ctx.drawImage(off[1],0,0); ctx.globalAlpha=1;
+    if(k<1) requestAnimationFrame(step); else { idx=next; }
+  })(t0);
+}
+function schedule(){ clearTimeout(timer); if(!running) return;
+  timer=setTimeout(()=>{ fadeTo((idx+1)%PAGES.length); schedule(); }, HOLD); }
+
+document.getElementById('next').onclick=()=>{ fadeTo((idx+1)%PAGES.length); schedule(); };
+document.getElementById('prev').onclick=()=>{ fadeTo((idx+PAGES.length-1)%PAGES.length); schedule(); };
+document.getElementById('auto').onclick=e=>{ running=!running;
+  e.target.textContent = running? '⏸ หยุดสลับหน้า':'▶ สลับหน้าอัตโนมัติ'; schedule(); };
+document.getElementById('load').onclick=async()=>{
+  const v=document.getElementById('url').value.trim();
+  if(!v) return;
+  try{
+    D = v.startsWith('{') ? JSON.parse(v) : await (await fetch(v)).json();
+    if(D.nc) alert('เซิร์ฟเวอร์ตอบ {"nc":1} = ข้อมูลไม่เปลี่ยน (เอา &h=... ออกจาก URL)');
+    render(idx);
+  }catch(err){ alert('อ่านข้อมูลไม่ได้: '+err.message+'\nลองเปิด URL ในแท็บใหม่แล้วคัดลอก JSON มาวางแทน'); }
+};
+
+document.fonts && document.fonts.ready.then(()=>render(idx));
+render(idx); schedule();
+</script>
+</body>
+</html>

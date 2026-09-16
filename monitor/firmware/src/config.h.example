@@ -1,0 +1,45 @@
+/**
+ * คัดลอกไฟล์นี้เป็น config.h แล้วแก้ค่าให้ตรงกับหน้างาน
+ * config.h จริงถูก .gitignore ไว้ — อย่า commit เพราะมีรหัส WiFi กับ token
+ */
+#pragma once
+
+/* ---------- เครือข่าย ---------- */
+#define WIFI_SSID        "ชื่อ WiFi ร้าน"
+#define WIFI_PASS        "รหัสผ่าน"
+
+/* URL ของ Web App (ลงท้ายด้วย /exec) + token ที่ตั้งไว้ใน Script Properties */
+#define API_BASE         "https://script.google.com/macros/s/XXXXXXXXXXXX/exec"
+#define API_TOKEN        "token ที่ตั้งไว้ใน MONITOR_TOKEN"
+#define API_BRANCH       "TPS-03"        /* หรือ "ALL" เพื่อดูยอดรวมทุกสาขา */
+
+/* ---------- จังหวะการทำงาน ---------- */
+#define POLL_SEC         60              /* ดึงข้อมูลทุกกี่วินาที (อย่าต่ำกว่า 30) */
+#define PAGE_HOLD_MS     8000            /* ค้างแต่ละหน้ากี่ ms */
+#define FADE_STEPS       8               /* จำนวนสเต็ปของ crossfade (มากขึ้น = นุ่มขึ้น แต่ช้าลง) */
+#define CLOCK_REFRESH_MS 30000           /* วาดหน้าเดิมซ้ำเพื่ออัปเดตนาฬิกา */
+
+/* ---------- จอ ---------- */
+/* เลือก driver ให้ตรงกับจอจริง — จอสาย 8 เส้นไม่มี MISO จึงอ่าน ID จากจอไม่ได้ */
+#define PANEL_ILI9341    1               /* 1 = ILI9341, 0 = ST7789 */
+#define TFT_ROTATION     1               /* 0/2 = แนวตั้ง 240x320, 1/3 = แนวนอน 320x240 */
+#define TFT_INVERT       0               /* ถ้าสีกลับด้าน ให้เปลี่ยนเป็น 1 */
+#define TFT_SPI_HZ       40000000        /* ลดเหลือ 27000000 ถ้าภาพมีเส้นรบกวน */
+
+/* ขาต่อจาก IDC ไปบอร์ดจอ — ตรวจกับบอร์ดจริงก่อนจ่ายไฟ */
+#define PIN_TFT_SCLK     12              /* SCL */
+#define PIN_TFT_MOSI     11              /* SDA */
+#define PIN_TFT_DC       13              /* RS  */
+#define PIN_TFT_CS       10              /* CS  */
+#define PIN_TFT_RST      14              /* RST */
+#define PIN_TFT_BL       15              /* BLK — ต่อ PWM เพื่อหรี่จอกลางคืน */
+
+/* ---------- ความสว่าง ---------- */
+#define BL_DAY           255             /* 0-255 */
+#define BL_NIGHT         60
+#define NIGHT_START_HOUR 22              /* หรี่จอตั้งแต่ 22:00 */
+#define NIGHT_END_HOUR   8               /* กลับมาสว่าง 08:00 */
+
+/* ---------- ฟอนต์ไทย ---------- */
+/* 0 = ใช้ป้ายภาษาอังกฤษ (ตัวเลขอ่านได้ครบ) ; 1 = ฝังฟอนต์ไทยเองแล้ว (ดู docs/03-hardware.md) */
+#define HAS_THAI_FONT    0
