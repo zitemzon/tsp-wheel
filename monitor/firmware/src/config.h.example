@@ -27,15 +27,19 @@
 #define TFT_INVERT       0               /* ถ้าสีกลับด้าน ให้เปลี่ยนเป็น 1 */
 #define TFT_SPI_HZ       40000000        /* ลดเหลือ 27000000 ถ้าภาพมีเส้นรบกวน */
 
-/* ขาต่อจาก IDC ไปบอร์ดจอ — ตรวจกับบอร์ดจริงก่อนจ่ายไฟ */
-#define PIN_TFT_SCLK     12              /* SCL */
-#define PIN_TFT_MOSI     11              /* SDA */
-#define PIN_TFT_DC       13              /* RS  */
-#define PIN_TFT_CS       10              /* CS  */
-#define PIN_TFT_RST      14              /* RST */
-#define PIN_TFT_BL       15              /* BLK — ต่อ PWM เพื่อหรี่จอกลางคืน */
+/* ขาต่อจาก IDC ไปบอร์ดจอ — ค่าจริงของบอร์ด Router_V2.0 (ตรงกับ User_Setup.h ของ TFT_eSPI ที่ใช้อยู่)
+   ทุกขาอยู่นอกช่วง GPIO 26-37 ที่ผูกกับ flash/PSRAM แบบ OPI ของ N16R8
+   และไม่ชน strapping pin ของ ESP32-S3 (0 / 3 / 45 / 46) */
+#define PIN_TFT_MOSI     6               /* SDA */
+#define PIN_TFT_SCLK     7               /* SCL */
+#define PIN_TFT_CS       8               /* CS  */
+#define PIN_TFT_DC       12              /* RS  */
+#define PIN_TFT_RST      5               /* RST */
+#define PIN_TFT_BL       9               /* BLK — ต่อ PWM เพื่อหรี่จอกลางคืน */
+/* MISO ไม่ได้ต่อ (สาย 8 เส้น) — โค้ดตั้ง pin_miso = -1 ไว้แล้ว ไม่ต้องกำหนดที่นี่ */
 
 /* ---------- ความสว่าง ---------- */
+#define BL_ON_HIGH       1               /* 1 = ขา BLK ระดับสูง = สว่าง (TFT_BACKLIGHT_ON HIGH) */
 #define BL_DAY           255             /* 0-255 */
 #define BL_NIGHT         60
 #define NIGHT_START_HOUR 22              /* หรี่จอตั้งแต่ 22:00 */

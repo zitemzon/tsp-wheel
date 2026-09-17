@@ -40,7 +40,8 @@ public:
       c.dlen_16bit = false;   c.bus_shared = false;
       _panel.config(c); }
     { auto c = _light.config();
-      c.pin_bl = PIN_TFT_BL; c.invert = false; c.freq = 12000; c.pwm_channel = 7;
+      c.pin_bl = PIN_TFT_BL; c.invert = (BL_ON_HIGH ? false : true);
+      c.freq = 12000; c.pwm_channel = 7;
       _light.config(c); _panel.setLight(&_light); }
     setPanel(&_panel);
   }
