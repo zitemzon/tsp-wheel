@@ -37,5 +37,5 @@ jobs:
 
       - name: ฟังก์ชันคำนวณฝั่งจอ
         run: |
-          g++ -std=c++17 -Wall -I monitor/firmware/src monitor/tests/ui_util_test.cpp -o /tmp/ui_util_test
+          g++ -std=c++17 -Wall -I monitor/firmware/tsp_monitor monitor/tests/ui_util_test.cpp -o /tmp/ui_util_test
           /tmp/ui_util_test

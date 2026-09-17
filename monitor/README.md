@@ -27,7 +27,8 @@ docs/03-hardware.md       ผังขา, driver IC, งบหน่วยค�
 apps-script/TSP_Monitor_Calc.gs   สูตรล้วน (ทดสอบด้วย node ได้)
 apps-script/TSP_Monitor_Route.gs  doGet router + cache + token + ตารางกะ
 apps-script/preview.html          จำลองหน้าจอ 320×240 ในเบราว์เซอร์ = สเปกภาพของเฟิร์มแวร์
-firmware/                         PlatformIO (LovyanGFX + ArduinoJson)
+firmware/tsp_monitor/             สเก็ตช์หลัก — เปิดได้ทั้ง Arduino IDE (.ino) และ PlatformIO
+firmware/probe/panel_probe/       ตัวทดสอบหารุ่นจอ ILI9341/ST7789
 tests/calc.test.js                ทดสอบสูตรฝั่ง Apps Script  (node)
 tests/ui_util_test.cpp            ทดสอบฟังก์ชันคำนวณฝั่งจอ  (g++)
 ```
@@ -36,7 +37,7 @@ tests/ui_util_test.cpp            ทดสอบฟังก์ชันคำ�
 
 ```bash
 node monitor/tests/calc.test.js
-g++ -std=c++17 -I monitor/firmware/src monitor/tests/ui_util_test.cpp -o /tmp/t && /tmp/t
+g++ -std=c++17 -I monitor/firmware/tsp_monitor monitor/tests/ui_util_test.cpp -o /tmp/t && /tmp/t
 ```
 
 ## เริ่มใช้งาน
@@ -45,7 +46,8 @@ g++ -std=c++17 -I monitor/firmware/src monitor/tests/ui_util_test.cpp -o /tmp/t 
    แล้วเปลี่ยนชื่อ `doGet` เดิมในไฟล์นั้นเป็น `TSP_dashboardRedirect_()`
 2. `TSP_monSetup()` → `TSP_test_columns()` → **`TSP_test_vs_report()` ต้องขึ้น ✅ ตรงกันทุกสาขา**
 3. Deploy แบบ **New version** (คง URL เดิมไว้ ไม่ให้ LINE webhook พัง)
-4. เปิด `preview.html` ตรวจหน้าตา → `cp firmware/src/config.h.example firmware/src/config.h` → `pio run -t upload`
+4. เปิด `preview.html` ตรวจหน้าตา → ก๊อป `firmware/tsp_monitor/config.h.example` เป็น `config.h` แก้ค่า → Upload
+   (Arduino IDE: เปิด `firmware/tsp_monitor/tsp_monitor.ino` · PlatformIO: `pio run -t upload`)
 
 ยอดบนจอถูกออกแบบให้ **เท่ากับการ์ด LINE และรายงาน PDF เสมอ** — ใช้ตัวอ่านชีตและกติกาชุดเดียวกัน
 (`Revenue` ล้วน · กติกาเงินสดของตู้ CAPSULE · การแปลงปี พ.ศ.)

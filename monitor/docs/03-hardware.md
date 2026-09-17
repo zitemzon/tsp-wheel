@@ -54,6 +54,9 @@ driver IC ของจอเป็นแบบ COG ฝังใต้แถบ�
 วิธีที่เร็วที่สุดคือดูบรรทัด `#define ILI9341_DRIVER` / `ST7789_DRIVER` ใน `User_Setup.h`
 ของชุด TFT_eSPI ที่เคยใช้กับจอนี้ ถ้าหาไม่เจอ ใช้ตัวทดสอบในโปรเจกต์นี้แทน:
 
+**Arduino IDE** — เปิด `monitor/firmware/probe/panel_probe/panel_probe.ino` แล้วกด Upload
+
+**PlatformIO**
 ```bash
 cd monitor/firmware
 pio run -e panel-probe -t upload && pio device monitor
@@ -86,14 +89,48 @@ pio run -e panel-probe -t upload && pio device monitor
 ถ้าจอดำสนิททั้ง 4 โหมด แปลว่ายังไม่ถึงขั้นเลือก driver — ไปเช็ค RST / CS / DC / ไฟ 3.3V
 และดู serial ว่าขาที่พิมพ์ออกมาตรงกับที่ต่อจริงไหม
 
-## 5. ขั้นตอน flash
+## 5. เปิดงานนี้ใน Arduino IDE
+
+> ⛔ **อย่าคัดลอกเนื้อหาจากไฟล์เอกสารนี้ไปแปะใน Arduino IDE** — ไฟล์ `.md` เป็นเอกสาร ไม่ใช่โค้ด
+> ถ้าแปะลงไปจะได้ error ประมาณ `extended character × is not valid in an identifier`
+> ให้เปิดไฟล์ `.ino` ตามเส้นทางด้านล่างแทน
+
+### ติดตั้งครั้งเดียว
+
+1. **Boards Manager** → ติดตั้ง `esp32 by Espressif Systems`
+2. **Library Manager** → ติดตั้ง `LovyanGFX` และ `ArduinoJson`
+
+### ตั้งค่าในเมนู Tools ให้ตรงกับ ESP32-S3-N16R8
+
+| หัวข้อ | ต้องเลือก |
+| :-- | :-- |
+| Board | ESP32S3 Dev Module |
+| **PSRAM** | **OPI PSRAM** ← ผิดข้อนี้ sprite 3 ชั้นจองไม่ผ่าน จอจะขึ้น `sprite alloc failed` |
+| Flash Size | 16MB (128Mb) |
+| Partition Scheme | 16M Flash (3MB APP/9.9MB FATFS) |
+| **USB CDC On Boot** | **Enabled** ← ไม่งั้นไม่เห็นอะไรใน Serial Monitor |
+| Upload Speed | 921600 |
+
+### ลำดับการใช้งาน
+
+| ขั้น | เปิดไฟล์ | ทำอะไร |
+| :-: | :-- | :-- |
+| 1 | `monitor/firmware/probe/panel_probe/panel_probe.ino` | Upload แล้วจดเลขโหมดที่ภาพถูกต้อง (หัวข้อ 4) |
+| 2 | `monitor/firmware/tsp_monitor/config.h.example` | ก๊อปเป็น `config.h` ในโฟลเดอร์เดียวกัน แก้ WiFi / URL / token และใส่ `PANEL_ILI9341` · `TFT_INVERT` ตามเลขโหมด |
+| 3 | `monitor/firmware/tsp_monitor/tsp_monitor.ino` | Upload |
+
+ไฟล์ `.ino` ทั้งสองตัวมีแต่คอมเมนต์ — เป็นป้ายชื่อสเก็ตช์ให้ Arduino IDE เท่านั้น
+โค้ดจริงอยู่ในไฟล์ `.cpp` / `.h` โฟลเดอร์เดียวกัน ซึ่ง IDE คอมไพล์ให้เองอัตโนมัติ
+(ห้ามเปลี่ยนชื่อโฟลเดอร์หรือไฟล์ `.ino` ให้ไม่ตรงกัน Arduino IDE จะไม่ยอมเปิด)
+
+## 6. ขั้นตอน flash ด้วย PlatformIO
 
 ```bash
 cd monitor/firmware
-cp src/config.h.example src/config.h        # แล้วแก้ WiFi / URL / token / ขา
-pio run                                      # คอมไพล์
-pio run -t upload                            # แฟลชผ่าน USB-C
-pio device monitor                           # ดู log 115200
+cp tsp_monitor/config.h.example tsp_monitor/config.h   # แล้วแก้ WiFi / URL / token / รุ่นจอ
+pio run                                                 # คอมไพล์
+pio run -t upload                                       # แฟลชผ่าน USB-C
+pio device monitor                                      # ดู log 115200
 ```
 
 log ที่ควรเห็นเมื่อทุกอย่างปกติ:
@@ -105,7 +142,7 @@ log ที่ควรเห็นเมื่อทุกอย่างปก�
 
 ถ้าดึงข้อมูลไม่ได้ติดกัน 5 ครั้ง บอร์ดจะรีสตาร์ตตัวเองอัตโนมัติ
 
-## 6. งบหน่วยความจำและเวลาเฟรม
+## 7. งบหน่วยความจำและเวลาเฟรม
 
 | รายการ | ค่า |
 | :-- | :-- |
@@ -118,7 +155,7 @@ log ที่ควรเห็นเมื่อทุกอย่างปก�
 การ fade ทำด้วยการผสมค่าสี RGB565 ในบัฟเฟอร์ **ไม่ใช่การหรี่ backlight**
 ขา BLK สงวนไว้สำหรับหรี่จอกลางคืน (`BL_NIGHT` ช่วง `NIGHT_START_HOUR`–`NIGHT_END_HOUR`)
 
-## 7. เรื่องฟอนต์ไทย (ค้างไว้เป็น P2)
+## 8. เรื่องฟอนต์ไทย (ค้างไว้เป็น P2)
 
 ค่าเริ่มต้น `HAS_THAI_FONT 0` → ป้ายกำกับเป็นภาษาอังกฤษสั้น ๆ ส่วน **ตัวเลขทุกตัวแสดงครบปกติ**
 

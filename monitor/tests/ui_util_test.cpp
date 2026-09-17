@@ -1,6 +1,6 @@
 /**
  * ทดสอบฟังก์ชันคำนวณของฝั่งจอบนเครื่อง PC (ไม่ต้องมีบอร์ด)
- *   g++ -std=c++17 -I../firmware/src ui_util_test.cpp -o /tmp/ui_util_test && /tmp/ui_util_test
+ *   g++ -std=c++17 -I../firmware/tsp_monitor ui_util_test.cpp -o /tmp/ui_util_test && /tmp/ui_util_test
  */
 #include "ui_util.h"
 #include <cstdio>
