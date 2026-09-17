@@ -1,21 +1,27 @@
 /**
- * panel_probe.cpp — หาว่าจอที่ต่ออยู่เป็น driver ตัวไหน
+ * panel_probe.cpp — วินิจฉัยจอ TFT: สายไฟหรือไลบรารีกันแน่
  * ------------------------------------------------------------------
- * แฟลชครั้งเดียวแล้วนั่งดู จอจะวนแสดง 4 โหมด โหมดละ 6 วินาที
+ * แฟลชครั้งเดียวแล้วนั่งดู จะวน 2 ช่วงสลับกันไปเรื่อย ๆ
  *
- *   1  ILI9341  inv:OFF          3  ST7789   inv:OFF
- *   2  ILI9341  inv:ON           4  ST7789   inv:ON
+ *   STAGE 1  RAW SPI — คุมขาเองทั้งหมด ไม่ผ่าน LovyanGFX เลย
+ *            ถมสีแดง/เขียวเต็มจอ ด้วยชุด init ของ ILI9341 แล้วของ ST7789
  *
- * รอบไหนที่ "กรอบขาวเต็มขอบ · แถบสีเรียง R G B ถูกสี · พื้นหลังดำสนิท"
- * = ค่านั้นคือค่าที่ต้องใส่ใน config.h
+ *   STAGE 2  LovyanGFX 4 โหมด — ILI9341/ST7789 x invert ON/OFF
+ *            วาด test card: กรอบขาว · มุมเหลือง · เลขโหมด · แถบสี R G B W K
  *
- *   pio run -e panel-probe -t upload && pio device monitor
+ * ── อ่านผลยังไง ──────────────────────────────────────────────
  *
- * ขาที่ใช้: ถ้ามี src/config.h อยู่แล้วจะอ่านจากไฟล์นั้น
- * ถ้ายังไม่มี จะใช้ค่าของบอร์ด Router_V2.0 ที่ยืนยันแล้วด้านล่าง
+ *   STAGE 1 ถมสีติด + STAGE 2 ไม่ขึ้น  ->  สายไฟถูกหมด ปัญหาอยู่ที่ LovyanGFX
+ *   ทั้งสอง stage ไม่ขึ้นอะไรเลย        ->  ปัญหาฮาร์ดแวร์/สายไฟ ดู checklist ใน
+ *                                          monitor/docs/03-hardware.md
+ *   STAGE 2 ขึ้นภาพถูกต้อง              ->  จำเลขโหมดไปใส่ config.h ได้เลย
+ *
+ * ขาที่ใช้: ถ้ามี config.h อยู่ในโฟลเดอร์เดียวกันจะอ่านจากไฟล์นั้น
+ * ถ้ายังไม่มี จะใช้ค่าของบอร์ด Router_V2.0 ด้านล่าง
  * ------------------------------------------------------------------
  */
 #include <Arduino.h>
+#include <SPI.h>
 #include <LovyanGFX.hpp>
 
 #if __has_include("config.h")
@@ -33,15 +39,135 @@
 #ifndef TFT_ROTATION
   #define TFT_ROTATION  1        /* 1 = แนวนอน 320x240 เหมือนหน้าจอจริง */
 #endif
-#ifndef TFT_SPI_HZ
-  #define TFT_SPI_HZ    40000000
-#endif
 #ifndef BL_ON_HIGH
   #define BL_ON_HIGH    1
 #endif
 
-static const uint32_t HOLD_MS = 6000;
+/* ทั้งสอง stage ใช้ความถี่เดียวกัน จะได้ไม่มีตัวแปรอื่นมาปน
+   10 MHz ต่ำพอที่สายแพยาว ๆ ยังส่งได้ชัวร์ */
+#define PROBE_SPI_HZ  10000000
 
+static const uint32_t HOLD_MS     = 6000;   // LovyanGFX โหมดละกี่ ms
+static const uint32_t RAW_HOLD_MS = 4000;   // RAW ถมสีละกี่ ms
+static const int      PANEL_W     = 240;    // ขนาดจริงของพาเนล (ก่อนหมุน)
+static const int      PANEL_H     = 320;
+
+/*===================================================================
+ * STAGE 1 : RAW SPI — ไม่พึ่ง LovyanGFX เลยแม้แต่บรรทัดเดียว
+ *==================================================================*/
+static SPIClass rawSpi(FSPI);
+static bool rawBusOpen = false;
+
+static void rawBegin() {
+  pinMode(PIN_TFT_CS,  OUTPUT); digitalWrite(PIN_TFT_CS,  HIGH);
+  pinMode(PIN_TFT_DC,  OUTPUT); digitalWrite(PIN_TFT_DC,  HIGH);
+  pinMode(PIN_TFT_RST, OUTPUT); digitalWrite(PIN_TFT_RST, HIGH);
+  rawSpi.begin(PIN_TFT_SCLK, -1, PIN_TFT_MOSI, -1);
+  rawBusOpen = true;
+}
+
+static void rawEnd() {
+  if (!rawBusOpen) return;
+  rawSpi.end();
+  rawBusOpen = false;
+}
+
+static void rawHwReset() {
+  digitalWrite(PIN_TFT_RST, HIGH); delay(10);
+  digitalWrite(PIN_TFT_RST, LOW);  delay(20);
+  digitalWrite(PIN_TFT_RST, HIGH); delay(150);
+}
+
+static void rawCmd(uint8_t c) {
+  rawSpi.beginTransaction(SPISettings(PROBE_SPI_HZ, MSBFIRST, SPI_MODE0));
+  digitalWrite(PIN_TFT_DC, LOW);
+  digitalWrite(PIN_TFT_CS, LOW);
+  rawSpi.transfer(c);
+  digitalWrite(PIN_TFT_CS, HIGH);
+  rawSpi.endTransaction();
+}
+
+static void rawData(const uint8_t *d, size_t n) {
+  rawSpi.beginTransaction(SPISettings(PROBE_SPI_HZ, MSBFIRST, SPI_MODE0));
+  digitalWrite(PIN_TFT_DC, HIGH);
+  digitalWrite(PIN_TFT_CS, LOW);
+  rawSpi.writeBytes(d, n);
+  digitalWrite(PIN_TFT_CS, HIGH);
+  rawSpi.endTransaction();
+}
+
+static void rawCmdData(uint8_t c, uint8_t d) { rawCmd(c); rawData(&d, 1); }
+
+/** ชุด init ขั้นต่ำที่ทั้ง ILI9341 และ ST7789 รับได้ ต่างกันแค่ INVOFF/INVON */
+static void rawInitPanel(bool inversionOn) {
+  rawHwReset();
+  rawCmd(0x01); delay(150);            // SWRESET
+  rawCmd(0x11); delay(120);            // SLPOUT
+  rawCmdData(0x3A, 0x55);              // COLMOD = RGB565
+  rawCmdData(0x36, 0x00);              // MADCTL = ปกติ
+  rawCmd(inversionOn ? 0x21 : 0x20);   // INVON / INVOFF
+  rawCmd(0x13); delay(10);             // NORON
+  rawCmd(0x29); delay(120);            // DISPON
+}
+
+static void rawSetWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
+  uint8_t b[4];
+  b[0] = x0 >> 8; b[1] = x0 & 0xFF; b[2] = x1 >> 8; b[3] = x1 & 0xFF;
+  rawCmd(0x2A); rawData(b, 4);         // CASET
+  b[0] = y0 >> 8; b[1] = y0 & 0xFF; b[2] = y1 >> 8; b[3] = y1 & 0xFF;
+  rawCmd(0x2B); rawData(b, 4);         // RASET
+  rawCmd(0x2C);                        // RAMWR
+}
+
+static void rawFill(uint16_t color) {
+  rawSetWindow(0, 0, PANEL_W - 1, PANEL_H - 1);
+
+  uint8_t buf[512];
+  for (size_t i = 0; i < sizeof(buf); i += 2) {
+    buf[i]     = (uint8_t)(color >> 8);
+    buf[i + 1] = (uint8_t)(color & 0xFF);
+  }
+  const uint32_t total = (uint32_t)PANEL_W * PANEL_H * 2;
+  const uint32_t rounds = total / sizeof(buf);
+
+  rawSpi.beginTransaction(SPISettings(PROBE_SPI_HZ, MSBFIRST, SPI_MODE0));
+  digitalWrite(PIN_TFT_DC, HIGH);
+  digitalWrite(PIN_TFT_CS, LOW);
+  for (uint32_t i = 0; i < rounds; i++) rawSpi.writeBytes(buf, sizeof(buf));
+  digitalWrite(PIN_TFT_CS, HIGH);
+  rawSpi.endTransaction();
+}
+
+static void stageRaw() {
+  Serial.println();
+  Serial.println("=== STAGE 1 : RAW SPI (ไม่ผ่าน LovyanGFX) ===");
+  rawBegin();
+
+  const struct { const char *name; bool inv; } inits[2] = {
+    { "ILI9341-style (INVOFF)", false },
+    { "ST7789-style  (INVON)",  true  }
+  };
+  const struct { const char *name; uint16_t color; } fills[2] = {
+    { "แดง",  0xF800 },
+    { "เขียว", 0x07E0 }
+  };
+
+  for (int i = 0; i < 2; i++) {
+    Serial.printf("  init %s\n", inits[i].name);
+    rawInitPanel(inits[i].inv);
+    for (int f = 0; f < 2; f++) {
+      Serial.printf("    ถมสี%s ... จอเปลี่ยนสีไหม\n", fills[f].name);
+      rawFill(fills[f].color);
+      delay(RAW_HOLD_MS);
+    }
+  }
+  rawEnd();
+  Serial.println("=== จบ STAGE 1 ===");
+}
+
+/*===================================================================
+ * STAGE 2 : LovyanGFX
+ *==================================================================*/
 static lgfx::Bus_SPI        bus;
 static lgfx::Light_PWM      light;
 static lgfx::Panel_ILI9341  panelIli;
@@ -58,8 +184,8 @@ static void setupBus() {
   auto c = bus.config();
   c.spi_host    = SPI2_HOST;
   c.spi_mode    = 0;
-  c.freq_write  = TFT_SPI_HZ;
-  c.freq_read   = 16000000;
+  c.freq_write  = PROBE_SPI_HZ;
+  c.freq_read   = 8000000;
   c.spi_3wire   = false;
   c.use_lock    = true;
   c.dma_channel = SPI_DMA_CH_AUTO;
@@ -85,8 +211,8 @@ static void applyMode(int i) {
   c.pin_cs       = PIN_TFT_CS;
   c.pin_rst      = PIN_TFT_RST;
   c.pin_busy     = -1;
-  c.panel_width  = 240;
-  c.panel_height = 320;
+  c.panel_width  = PANEL_W;
+  c.panel_height = PANEL_H;
   c.offset_x     = 0;
   c.offset_y     = 0;
   c.offset_rotation = 0;
@@ -152,22 +278,49 @@ static void drawTestCard(int i) {
   lcd.drawString("frame full + R G B correct + K black = this mode is right", 12, H - 4);
 }
 
-void setup() {
-  Serial.begin(115200);
-  delay(300);
+static void stageLovyan() {
   Serial.println();
-  Serial.println("=== TSP panel probe ===");
-  Serial.printf("pins: MOSI=%d SCLK=%d CS=%d DC=%d RST=%d BL=%d  rotation=%d\n",
-                PIN_TFT_MOSI, PIN_TFT_SCLK, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST, PIN_TFT_BL, TFT_ROTATION);
-  Serial.println("วนโหมดละ 6 วินาที — จำเลขโหมดที่ภาพถูกต้องไว้");
-  setupBus();
-}
-
-void loop() {
+  Serial.println("=== STAGE 2 : LovyanGFX 4 โหมด ===");
   for (int i = 0; i < 4; i++) {
-    Serial.printf("[%d/4] %s  invert=%s\n", i + 1, MODES[i].name, MODES[i].invert ? "ON" : "OFF");
+    Serial.printf("  [%d/4] %s  invert=%s\n", i + 1, MODES[i].name, MODES[i].invert ? "ON" : "OFF");
     applyMode(i);
     drawTestCard(i);
     delay(HOLD_MS);
   }
+  bus.release();                      // คืนบัสให้ STAGE 1 ใช้ต่อในรอบหน้า
+  Serial.println("=== จบ STAGE 2 ===");
+}
+
+/*===================================================================
+ * STAGE 0 : รายงานสภาพแวดล้อม + ลูปหลัก
+ *==================================================================*/
+void setup() {
+  Serial.begin(115200);
+  delay(400);
+  Serial.println();
+  Serial.println("======================================");
+  Serial.println("  TSP panel probe v2");
+  Serial.println("======================================");
+  Serial.printf("ขา : MOSI=%d SCLK=%d CS=%d DC=%d RST=%d BL=%d\n",
+                PIN_TFT_MOSI, PIN_TFT_SCLK, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST, PIN_TFT_BL);
+  Serial.printf("SPI: %d Hz (ทั้งสอง stage ใช้เท่ากัน) · rotation=%d\n", PROBE_SPI_HZ, TFT_ROTATION);
+  Serial.printf("IDF: %s\n", esp_get_idf_version());
+#ifdef ESP_ARDUINO_VERSION_MAJOR
+  Serial.printf("Arduino core: %d.%d.%d\n",
+                ESP_ARDUINO_VERSION_MAJOR, ESP_ARDUINO_VERSION_MINOR, ESP_ARDUINO_VERSION_PATCH);
+#endif
+#ifdef LGFX_VERSION_MAJOR
+  Serial.printf("LovyanGFX: %d.%d.%d\n", LGFX_VERSION_MAJOR, LGFX_VERSION_MINOR, LGFX_VERSION_PATCH);
+#endif
+  Serial.printf("PSRAM: %u ไบต์  %s\n", (unsigned)ESP.getPsramSize(),
+                ESP.getPsramSize() ? "" : "<-- เป็น 0 = ยังไม่ได้เปิด Tools > PSRAM = OPI PSRAM");
+  Serial.println("--------------------------------------");
+
+  setupBus();
+  light.init(255);                    // เปิด backlight ไว้ตลอด ทั้งสอง stage
+}
+
+void loop() {
+  stageRaw();
+  stageLovyan();
 }
