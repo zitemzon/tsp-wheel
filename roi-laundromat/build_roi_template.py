@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-สร้างเทมเพลต Excel: "การคำนวณ ROI ร้านสะดวกซัก Samsung Commercial"
-โครงสร้างอ้างอิงจากฟอร์ม LG WM Franchise / Laundry Crew ROI Model และขยายให้ครบถ้วน
+สร้างเทมเพลต Excel: "การคำนวณ ROI ร้านสะดวกซัก Samsung Commercial" v2.0
+อิงราคาและสเปกจริงจากเอกสาร Samsung Commercial Franchise (ก.ย. 2026)
 Run: python3 build_roi_template.py
 """
 import datetime
@@ -131,31 +131,32 @@ def SV(key):  return R("F_SERVICE", key)
 
 wb = Workbook()
 wb.remove(wb.active)
-TODAY = datetime.date(2026, 9, 18)
+TODAY = datetime.date(2026, 9, 19)
 
 # ============================================================ Z_LISTS (dropdown)
 zl = wb.create_sheet("Z_LISTS")
 zl.sheet_properties.tabColor = "A6A6A6"
+PAY_SCAN = "เปิดสแกน PromptPay 3% (ฟรีค่าบริการระบบ)"
+PAY_NONE = "ไม่เปิดสแกน (จ่ายค่าบริการระบบ)"
 LISTS = {
-    "A": ("PackageCode", ["S", "M", "L", "XL", "CUSTOM"]),
+    "A": ("PackageCode", ["S", "M", "L", "CUSTOM"]),
     "B": ("RevenueMode", ["A: รวมรอบ (ซัก+อบ ราคาเดียว)", "B: แยกเครื่องซัก / เครื่องอบ"]),
     "C": ("UtilityModel", ["1: % ของยอดขาย", "2: คำนวณจากหน่วยจริง (kWh/ลิตร)"]),
     "D": ("YesNo", ["Yes / ใช่", "No / ไม่ใช่"]),
-    "E": ("Scenario", ["Base / ฐาน", "Best / ดีที่สุด", "Worst / แย่ที่สุด"]),
+    "E": ("PayMode", [PAY_SCAN, PAY_NONE]),
     "F": ("CapturePct", [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]),
     "G": ("VatRate", [0.0, 0.07]),
-    "H": ("ServicePack", ["Package A (Minor x3 + Major x1)", "Package B (Major x2)", "ไม่ซื้อ / No package"]),
-    "I": ("Warranty", ["2+0 ปี (มาตรฐาน)", "2+1 ปี", "2+2 ปี", "2+3 ปี"]),
-    "J": ("Owner", ["Krittanan", "Sales 2", "Sales 3", "อื่นๆ"]),
-    "K": ("LocType", ["หน้าหอพัก/คอนโด", "ในหมู่บ้านจัดสรร", "ริมถนนหลัก/ปั๊มน้ำมัน", "ใกล้ตลาด/ชุมชน", "ในห้างฯ/คอมมูนิตี้มอลล์"]),
-    "L": ("Score", [1, 2, 3, 4, 5]),
+    "H": ("Owner", ["Krittanan", "Sales 2", "Sales 3", "อื่นๆ"]),
+    "I": ("LocType", ["หน้าหอพัก/คอนโด", "ในหมู่บ้านจัดสรร", "ริมถนนหลัก/ปั๊มน้ำมัน",
+                      "ใกล้ตลาด/ชุมชน", "ในห้างฯ/คอมมูนิตี้มอลล์"]),
+    "J": ("Score", [1, 2, 3, 4, 5]),
 }
 for col, (name, vals) in LISTS.items():
     put(zl, f"{col}1", name, bold=True, color=C_WHT, fill=NAVY, align="center", size=9)
     for i, v in enumerate(vals, start=2):
         put(zl, f"{col}{i}", v, size=9,
             fmt=(FMT_PCT if name in ("CapturePct", "VatRate") else None))
-    zl.column_dimensions[col].width = 26
+    zl.column_dimensions[col].width = 30
     REF[("Z_LISTS", name)] = f"Z_LISTS!${col}$2:${col}${len(vals)+1}"
 zl.sheet_state = "hidden"
 
@@ -165,344 +166,360 @@ def DV(name, sheet):
     sheet.add_data_validation(dv)
     return dv
 
+SRC = "ที่มา: เอกสาร Samsung Commercial Franchise / ตารางสรุปราคาอุปกรณ์ (ก.ย. 2026)"
+
 # ============================================================ B_PACKAGES
 p = SheetBuilder(wb, "B_PACKAGES", "2E75B6")
 ws = p.ws
-for c, w in zip("ABCDEFGHIJ", [30, 34, 14, 12, 12, 13, 13, 13, 13, 13]):
+for c, w in zip("ABCDEFGH", [46, 16, 18, 16, 16, 16, 16, 46]):
     ws.column_dimensions[c].width = w
-ws.merge_cells("A1:J1")
-put(ws, "A1", "B) MACHINE & PACKAGE MASTER / ฐานข้อมูลเครื่องและแพ็กเกจ",
+ws.merge_cells("A1:H1")
+put(ws, "A1", "B) MACHINE & PACKAGE MASTER / ฐานข้อมูลเครื่องและแพ็กเกจ  (ราคาจริง Samsung Commercial)",
     bold=True, size=14, color=C_WHT, fill=NAVY, align="left", border=False)
 ws.row_dimensions[1].height = 26
-put(ws, "A2", "ตัวเลขทั้งหมดในหน้านี้เป็น 'ค่าตั้งต้นตัวอย่าง' — ต้องแทนที่ด้วยราคาจริงจากใบเสนอราคา Samsung Commercial ก่อนใช้งานจริง",
+put(ws, "A2", SRC + "  |  ราคาแพ็กเกจเป็นราคารวม VAT แล้ว  |  ช่องสีเหลือง = แก้ไขได้",
     italic=True, size=9, color="C00000", border=False)
 p.r = 4
 
 # ---- 1) MACHINE MASTER
-p.band("1) MACHINE MASTER / รายการเครื่องและอุปกรณ์", "J")
-p.hdr({"A": "รหัส / Code", "B": "รุ่น / Model", "C": "ประเภท / Type",
-       "D": "ความจุ (kg)", "E": "เวลา/รอบ (นาที)", "F": "ราคา/เครื่อง (บาท)",
-       "G": "ราคาขาย/รอบ (บาท)", "H": "ไฟฟ้า kWh/รอบ", "I": "น้ำ ลิตร/รอบ",
-       "J": "อายุใช้งาน (ปี)"}, "J")
+p.band("1) MACHINE MASTER / สเปกเครื่อง Samsung Commercial", "H")
+p.hdr({"A": "รหัส / รุ่น", "B": "ประเภท", "C": "ความจุ (kg)", "D": "เวลา/รอบ (นาที)",
+       "E": "ไฟฟ้า kWh/รอบ", "F": "น้ำ ลิตร/รอบ", "G": "แก๊ส LPG กก./รอบ",
+       "H": "อายุใช้งาน (รอบ)"}, "H")
 MACHINES = [
-    ("W14", "Samsung Commercial Washer 14 kg", "เครื่องซัก", 14, 32, 95000,  50, 0.9,  90, 8),
-    ("W21", "Samsung Commercial Washer 21 kg", "เครื่องซัก", 21, 36, 135000, 70, 1.3, 130, 8),
-    ("W28", "Samsung Commercial Washer 28 kg", "เครื่องซัก", 28, 40, 185000, 100, 1.7, 170, 8),
-    ("D15", "Samsung Commercial Dryer 15 kg",  "เครื่องอบ",  15, 30, 90000,  40, 3.2,   0, 8),
-    ("D25", "Samsung Commercial Dryer 25 kg",  "เครื่องอบ",  25, 35, 140000, 60, 5.0,   0, 8),
-    ("VND", "ตู้จำหน่ายน้ำยา / Vending",        "อุปกรณ์เสริม", 0, 0, 35000,   0, 0.1,   0, 5),
-    ("KSK", "ตู้แลกเหรียญ + POS / Kiosk",       "อุปกรณ์เสริม", 0, 0, 60000,   0, 0.1,   0, 5),
+    ("WM18 — เครื่องซัก 18 kg",      "เครื่องซัก", 18, 36, 0.55, 110, 0.00, 30000),
+    ("DR14 — เครื่องอบแก๊ส 14 kg",   "เครื่องอบ",  14, 45, 0.35,   0, 0.55, 30000),
 ]
 M_START = p.r
 for m in MACHINES:
     rr = p.r
-    put(ws, f"A{rr}", m[0], bold=True, align="center", size=9)
-    put(ws, f"B{rr}", m[1], size=9)
-    put(ws, f"C{rr}", m[2], size=9, align="center")
-    for col, val, fmt in zip("DEFGHIJ", m[3:],
-                             [FMT_INT, FMT_INT, FMT_THB, FMT_THB, '0.0', FMT_INT, FMT_INT]):
-        put(ws, f"{col}{rr}", val, fmt=fmt, color=C_IN, fill=YELLOW,
-            align="right", bold=True, size=9)
+    put(ws, f"A{rr}", m[0], bold=True, size=10)
+    put(ws, f"B{rr}", m[1], size=10, align="center")
+    for col, val, fmt in zip("CDEFGH", m[2:], [FMT_INT, FMT_INT, '0.00', FMT_INT, '0.00', FMT_INT]):
+        put(ws, f"{col}{rr}", val, fmt=fmt, color=C_IN, fill=YELLOW, align="right", bold=True, size=10)
     p.r += 1
 M_END = p.r - 1
-REF[("B_PACKAGES", "m_code")]  = f"'B_PACKAGES'!$A${M_START}:$A${M_END}"
-REF[("B_PACKAGES", "m_price")] = f"'B_PACKAGES'!$F${M_START}:$F${M_END}"
-REF[("B_PACKAGES", "m_cycle")] = f"'B_PACKAGES'!$E${M_START}:$E${M_END}"
-REF[("B_PACKAGES", "m_kwh")]   = f"'B_PACKAGES'!$H${M_START}:$H${M_END}"
-REF[("B_PACKAGES", "m_water")] = f"'B_PACKAGES'!$I${M_START}:$I${M_END}"
-REF[("B_PACKAGES", "m_sell")]  = f"'B_PACKAGES'!$G${M_START}:$G${M_END}"
-W_ROWS = (M_START, M_START + 2)        # แถวเครื่องซัก
-D_ROWS = (M_START + 3, M_START + 4)    # แถวเครื่องอบ
-put(ws, f"A{p.r}", "หมายเหตุ: ราคา/เครื่อง = ราคาหลังหักส่วนลด ยังไม่รวม VAT | เวลา/รอบ = เวลาซักจริง + เวลาโหลด-ปลดผ้า",
-    italic=True, size=9, color="595959", border=False)
+W_ROW, D_ROW = M_START, M_START + 1
+REF[("B_PACKAGES", "cyc_w")]  = f"'B_PACKAGES'!$D${W_ROW}"
+REF[("B_PACKAGES", "cyc_d")]  = f"'B_PACKAGES'!$D${D_ROW}"
+REF[("B_PACKAGES", "kwh_w")]  = f"'B_PACKAGES'!$E${W_ROW}"
+REF[("B_PACKAGES", "kwh_d")]  = f"'B_PACKAGES'!$E${D_ROW}"
+REF[("B_PACKAGES", "wat_w")]  = f"'B_PACKAGES'!$F${W_ROW}"
+REF[("B_PACKAGES", "gas_d")]  = f"'B_PACKAGES'!$G${D_ROW}"
+REF[("B_PACKAGES", "life_w")] = f"'B_PACKAGES'!$H${W_ROW}"
+put(ws, f"A{p.r}", "เวลา/รอบ และอายุ 30,000 รอบ = ค่าจากเอกสาร Samsung | kWh, ลิตร, กก.แก๊ส ต่อรอบ = ค่าประมาณ "
+                   "(เครื่องอบเป็นระบบแก๊ส LPG) — ควรวัดจากบิลจริงของสาขาที่เปิดแล้ว",
+    italic=True, size=9, color="C00000", border=False)
 p.r += 2
 
-# ---- 2) PACKAGE MATRIX
-p.band("2) PACKAGE MATRIX / จำนวนเครื่องในแต่ละแพ็กเกจ (แก้ช่องสีเหลืองเพื่อปรับแพ็กเกจ)", "J")
-put(ws, f"A{p.r}", "รหัสคอลัมน์ต้องตรงกับตัวเลือกใน A_INPUT เป๊ะ:  S = เล็ก | M = กลาง | L = ใหญ่ | XL = แฟล็กชิป | CUSTOM = กำหนดเอง",
+# ---- 2) PACKAGE MASTER
+p.band("2) PACKAGE MASTER / แพ็กเกจ Franchise (ราคารวม VAT)", "G")
+put(ws, f"A{p.r}", "รหัสคอลัมน์ต้องตรงกับตัวเลือกใน A_INPUT เป๊ะ:  S = 3 คู่ | M = 4 คู่ | L = 5 คู่ (Best seller) | CUSTOM = กำหนดเอง",
     italic=True, size=9, color="595959", border=False)
 p.r += 1
-p.hdr({"A": "รหัส / Code", "B": "รุ่น / Model", "C": "ราคา/เครื่อง (บาท)",
-       "D": "S", "E": "M", "F": "L", "G": "XL", "H": "CUSTOM"}, "H")
-QTY = {   # code: (S, M, L, XL, CUSTOM)
-    "W14": (3, 4, 5,  6,  0),
-    "W21": (1, 2, 3,  4,  0),
-    "W28": (0, 1, 2,  3,  0),
-    "D15": (2, 3, 4,  5,  0),
-    "D25": (0, 1, 2,  3,  0),
-    "VND": (1, 1, 1,  2,  0),
-    "KSK": (1, 1, 1,  1,  0),
-}
-Q_START = p.r
-for i, m in enumerate(MACHINES):
-    rr = p.r
-    mrow = M_START + i
-    put(ws, f"A{rr}", m[0], bold=True, align="center", size=9)
-    put(ws, f"B{rr}", f"='B_PACKAGES'!$B${mrow}", size=9, color=C_LINK)
-    put(ws, f"C{rr}", f"='B_PACKAGES'!$F${mrow}", fmt=FMT_THB, color=C_LINK, align="right", size=9)
-    for col, q in zip("DEFGH", QTY[m[0]]):
-        put(ws, f"{col}{rr}", q, fmt=FMT_INT, color=C_IN, fill=YELLOW,
-            align="right", bold=True, size=10)
-    p.r += 1
-Q_END = p.r - 1
-PKG_COLS = {"S": "D", "M": "E", "L": "F", "XL": "G", "CUSTOM": "H"}
-REF[("B_PACKAGES", "pkg_hdr")] = f"'B_PACKAGES'!$D${Q_START-1}:$H${Q_START-1}"
-
-def qrange(col):  return f"'B_PACKAGES'!${col}${Q_START}:${col}${Q_END}"
-def qrange_w(col): return f"'B_PACKAGES'!${col}${W_ROWS[0]-M_START+Q_START}:${col}${W_ROWS[1]-M_START+Q_START}"
-def qrange_d(col): return f"'B_PACKAGES'!${col}${D_ROWS[0]-M_START+Q_START}:${col}${D_ROWS[1]-M_START+Q_START}"
-WM_PRICE = f"'B_PACKAGES'!$E${W_ROWS[0]}:$E${W_ROWS[1]}"   # cycle time washers
-DM_PRICE = f"'B_PACKAGES'!$E${D_ROWS[0]}:$E${D_ROWS[1]}"
-WM_SELL  = f"'B_PACKAGES'!$G${W_ROWS[0]}:$G${W_ROWS[1]}"
-DM_SELL  = f"'B_PACKAGES'!$G${D_ROWS[0]}:$G${D_ROWS[1]}"
-WM_KWH   = f"'B_PACKAGES'!$H${W_ROWS[0]}:$H${W_ROWS[1]}"
-DM_KWH   = f"'B_PACKAGES'!$H${D_ROWS[0]}:$H${D_ROWS[1]}"
-WM_WATER = f"'B_PACKAGES'!$I${W_ROWS[0]}:$I${W_ROWS[1]}"
-
+p.hdr({"A": "รายการ / Item", "B": "หน่วย", "C": "หมายเหตุ",
+       "D": "S", "E": "M", "F": "L", "G": "CUSTOM"}, "G")
+PKG_HDR_ROW = p.r - 1
+REF[("B_PACKAGES", "pkg_hdr")] = f"'B_PACKAGES'!$D${PKG_HDR_ROW}:$G${PKG_HDR_ROW}"
 SUMROWS = {}
-def prow(label, builder, fmt=FMT_THB, bold=False, note="", fill=None):
+
+def prow(key, label, unit, note, vals=None, formula=None, fmt=FMT_THB,
+         bold=False, fill=None, inp=False):
     rr = p.r
-    ws.merge_cells(f"A{rr}:B{rr}")
     put(ws, f"A{rr}", label, size=10, bold=bold, fill=fill)
-    if fill:
-        ws[f"B{rr}"].fill = PatternFill("solid", fgColor=fill)
-    ws[f"B{rr}"].border = BOX
+    put(ws, f"B{rr}", unit, size=9, color="595959", align="center", fill=fill)
     put(ws, f"C{rr}", note, size=8, color="595959", wrap=True, fill=fill)
-    for col in "DEFGH":
-        put(ws, f"{col}{rr}", builder(col), fmt=fmt, bold=bold, align="right",
-            size=10, fill=fill)
+    for i, col in enumerate("DEFG"):
+        v = formula(col) if formula else vals[i]
+        put(ws, f"{col}{rr}", v, fmt=fmt, bold=bold, align="right", size=10,
+            fill=(YELLOW if inp else fill), color=(C_IN if inp else C_CALC))
+    SUMROWS[key] = rr
     p.r += 1
     return rr
 
-SUMROWS["w_units"] = prow("รวมเครื่องซัก / Washer units",
-    lambda c: f"=SUM({qrange_w(c)})", FMT_INT, note="เครื่อง")
-SUMROWS["d_units"] = prow("รวมเครื่องอบ / Dryer units",
-    lambda c: f"=SUM({qrange_d(c)})", FMT_INT, note="เครื่อง")
-SUMROWS["t_units"] = prow("รวมทั้งหมด / Total units",
-    lambda c: f"=SUM({qrange(c)})", FMT_INT, bold=True, note="เครื่อง+อุปกรณ์")
-SUMROWS["capex_m"] = prow("CAPEX เครื่อง+อุปกรณ์ / Machine CAPEX",
-    lambda c: f"=SUMPRODUCT({qrange(c)},{REF[('B_PACKAGES','m_price')]})",
-    bold=True, note="บาท (ไม่รวม VAT)")
-SUMROWS["avg_w_cycle"] = prow("เวลาเฉลี่ย/รอบ เครื่องซัก",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_w(c)},{WM_PRICE})/SUM({qrange_w(c)}),0)",
-    FMT_NUM, note="นาที (ถ่วงน้ำหนักตามจำนวนเครื่อง)")
-SUMROWS["avg_d_cycle"] = prow("เวลาเฉลี่ย/รอบ เครื่องอบ",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_d(c)},{DM_PRICE})/SUM({qrange_d(c)}),0)",
-    FMT_NUM, note="นาที")
-SUMROWS["avg_w_price"] = prow("ราคาเฉลี่ย/รอบ ซัก",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_w(c)},{WM_SELL})/SUM({qrange_w(c)}),0)",
-    FMT_NUM, note="บาท/รอบ")
-SUMROWS["avg_d_price"] = prow("ราคาเฉลี่ย/รอบ อบ",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_d(c)},{DM_SELL})/SUM({qrange_d(c)}),0)",
-    FMT_NUM, note="บาท/รอบ")
-SUMROWS["kwh_w"] = prow("ไฟฟ้าเฉลี่ย kWh/รอบซัก",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_w(c)},{WM_KWH})/SUM({qrange_w(c)}),0)",
-    '0.00', note="kWh")
-SUMROWS["kwh_d"] = prow("ไฟฟ้าเฉลี่ย kWh/รอบอบ",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_d(c)},{DM_KWH})/SUM({qrange_d(c)}),0)",
-    '0.00', note="kWh")
-SUMROWS["water_w"] = prow("น้ำเฉลี่ย ลิตร/รอบซัก",
-    lambda c: f"=IFERROR(SUMPRODUCT({qrange_w(c)},{WM_WATER})/SUM({qrange_w(c)}),0)",
-    FMT_NUM, note="ลิตร")
-
+prow("pairs", "จำนวนคู่ (ซัก+อบ) / Pairs", "คู่", "1 คู่ = ซัก 1 + อบ 1 (วางซ้อน Stack)",
+     vals=[3, 4, 5, 4], fmt=FMT_INT, inp=True)
+prow("w_units", "เครื่องซัก 18 kg / Washers", "เครื่อง", "",
+     formula=lambda c: f"={c}{SUMROWS['pairs']}", fmt=FMT_INT)
+prow("d_units", "เครื่องอบแก๊ส 14 kg / Dryers", "เครื่อง", "",
+     formula=lambda c: f"={c}{SUMROWS['pairs']}", fmt=FMT_INT)
+prow("t_units", "รวมเครื่อง (ระบบนับ 1 Stack = 2 เครื่อง)", "เครื่อง",
+     "ใช้คิดค่าบริการรายเดือน 100 บาท/เครื่อง",
+     formula=lambda c: f"={c}{SUMROWS['w_units']}+{c}{SUMROWS['d_units']}", fmt=FMT_INT, bold=True)
+prow("price_pkg", "ราคาแพ็กเกจ Franchise (รวม VAT)", "บาท",
+     "S 699,000 | M 799,000 | L 899,000 — รวมเครื่อง ติดตั้ง งานไฟ-น้ำ-แก๊ส งานตกแต่ง Built-in "
+     "อุปกรณ์แถม และระบบ I'M CONTROL 1 ปี",
+     vals=[699000, 799000, 899000, 799000], bold=True, fill=KPIFIL, inp=True)
+prow("maint_first", "งานบำรุงรักษาที่รวมในแพ็กเกจ (ปีแรก)", "ครั้ง/ปี",
+     "S-Built-in = 1 ครั้ง | M&L-Built-in = 2 ครั้ง", vals=[1, 2, 2, 2], fmt=FMT_INT, inp=True)
+prow("warranty_y", "ประกันเครื่องซัก-อบ", "ปี", "กล่องหยอดเหรียญรับประกัน 1 ปี",
+     vals=[3, 3, 3, 3], fmt=FMT_INT, inp=True)
+prow("imc_free", "ระบบ I'M CONTROL + ค่าบริการ ฟรี", "ปี", "หลังหมดปีแรกดูชีต F_SERVICE",
+     vals=[1, 1, 1, 1], fmt=FMT_INT, inp=True)
+prow("area", "พื้นที่แนะนำ / Recommended area", "ตร.ม.",
+     "งานกรุผนังในแพ็กเกจครอบคลุมไม่เกิน 25 ตร.ม.", vals=[30, 35, 45, 35], fmt=FMT_INT, inp=True)
+prow("pop_rec", "ประชากรในรัศมี 1 กม. ที่แนะนำ", "คน", "",
+     vals=[2500, 3500, 4500, 3500], fmt=FMT_INT, inp=True)
 p.r += 1
-p.band("3) CAPEX อื่นๆ ต่อแพ็กเกจ / Fit-out & Set-up cost", "H")
-FITOUT = {
-    "fit_out":  ("ค่าตกแต่งร้าน + งานระบบไฟ/น้ำ / Fit-out", (250000, 350000, 480000, 650000, 0)),
-    "signage":  ("ป้ายหน้าร้าน + ไฟฟ้า 3 เฟส / Signage & Power", (80000, 100000, 130000, 160000, 0)),
-    "sec":      ("CCTV + ระบบความปลอดภัย / Security", (25000, 30000, 40000, 50000, 0)),
-    "furn":     ("เฟอร์นิเจอร์ + แอร์ + TV / Furniture", (45000, 60000, 90000, 120000, 0)),
-    "install":  ("ค่าขนส่ง+ติดตั้งเครื่อง / Delivery & Install", (25000, 35000, 50000, 70000, 0)),
-    "opening":  ("การตลาดเปิดร้าน / Opening marketing", (20000, 30000, 40000, 60000, 0)),
-}
-for key, (label, vals) in FITOUT.items():
-    rr = p.r
-    ws.merge_cells(f"A{rr}:B{rr}")
-    put(ws, f"A{rr}", label, size=10)
-    ws[f"B{rr}"].border = BOX
-    put(ws, f"C{rr}", "บาท", size=8, color="595959")
-    for col, v in zip("DEFGH", vals):
-        put(ws, f"{col}{rr}", v, fmt=FMT_THB, color=C_IN, fill=YELLOW,
-            align="right", size=10)
-    SUMROWS[key] = rr
-    p.r += 1
-SUMROWS["capex_fit"] = prow("รวม CAPEX ตกแต่ง/ติดตั้ง / Total fit-out",
-    lambda c: "=SUM({0}{1}:{0}{2})".format(c, SUMROWS["fit_out"], SUMROWS["opening"]),
-    bold=True, fill=KPIFIL, note="บาท")
-SUMROWS["capex_all"] = prow("CAPEX รวมทั้งโครงการ (ก่อน VAT) / Total CAPEX",
-    lambda c: "={0}{1}+{0}{2}".format(c, SUMROWS["capex_m"], SUMROWS["capex_fit"]),
-    bold=True, fill=OKFILL, note="บาท")
-SUMROWS["area"] = prow("พื้นที่แนะนำ / Recommended area",
-    lambda c: {"D": 40, "E": 55, "F": 75, "G": 100, "H": 0}[c], FMT_INT, note="ตร.ม.")
-SUMROWS["pop"] = prow("ประชากรในรัศมี 1 กม. ที่แนะนำ",
-    lambda c: {"D": 2000, "E": 3500, "F": 5500, "G": 8000, "H": 0}[c], FMT_INT, note="คน")
 
-def pk_lookup(rowkey):
+# ---- 3) สิ่งที่ลูกค้าต้องเตรียมเอง
+p.band("3) CAPEX นอกแพ็กเกจ — สิ่งที่ลูกค้าต้องเตรียมเอง (หมายเหตุข้อ 2 ของเอกสาร Samsung)", "G")
+PREP = [
+    ("prep_elec",  "งานเดินสายเมนไฟฟ้า + ขอ/เพิ่มขนาดมิเตอร์ไฟฟ้า", "ไม่รวมในแพ็กเกจ", [60000, 70000, 80000, 70000]),
+    ("prep_water", "มิเตอร์ประปา + งานประปาหลักก่อนถึงจุดติดตั้ง", "ไม่รวมในแพ็กเกจ", [15000, 18000, 20000, 18000]),
+    ("prep_base",  "แท่นวางเครื่องซัก-อบ (ฐานปูน)", "ไม่รวมในแพ็กเกจ", [25000, 30000, 35000, 30000]),
+    ("prep_floor", "ฝ้าอาคาร + พื้นกระเบื้อง", "ไม่รวมในแพ็กเกจ", [40000, 50000, 60000, 50000]),
+    ("prep_gas",   "ถังแก๊ส LPG 2 ถัง + เงินมัดจำถัง", "ระบบแก๊สสลับอัตโนมัติ 2 ข้าง", [8000, 8000, 8000, 8000]),
+    ("prep_net",   "อินเทอร์เน็ต + ค่าติดตั้ง", "จำเป็นสำหรับ I'M CONTROL", [5000, 5000, 5000, 5000]),
+    ("prep_permit","ค่าขออนุญาต / ป้าย / อื่นๆ", "", [10000, 12000, 15000, 12000]),
+    ("prep_hot",   "ระบบน้ำร้อน STIEBEL ELTRON + เดินท่อน้ำร้อน", "หมายเหตุข้อ 5 — ไม่รวมในแพ็กเกจ (ใส่ 0 ถ้าไม่ติดตั้ง)", [0, 0, 0, 0]),
+    ("prep_ship",  "ค่าขนส่ง + ค่าเดินทางติดตั้ง", "หมายเหตุข้อ 1 — ตามเงื่อนไขบริษัทฯ", [15000, 15000, 15000, 15000]),
+]
+for key, label, note, vals in PREP:
+    prow(key, label, "บาท", note, vals=vals, inp=True)
+prow("prep_tot", "รวม CAPEX นอกแพ็กเกจ / Total prep cost", "บาท", "",
+     formula=lambda c: "=SUM({0}{1}:{0}{2})".format(c, SUMROWS["prep_elec"], SUMROWS["prep_ship"]),
+     bold=True, fill=KPIFIL)
+p.r += 1
+
+# ---- 4) อุปกรณ์เสริม (ราคาจริงจากตารางสรุป)
+p.band("4) อุปกรณ์เสริมซื้อเพิ่ม / Optional add-ons (ราคาขายจริง)", "H")
+p.hdr({"A": "รายการอุปกรณ์", "B": "ราคาขาย (บาท)", "C": "จำนวน", "D": "รวม (บาท)",
+       "E": "", "F": "", "G": "", "H": "หมายเหตุ / เงื่อนไข"}, "H")
+ADDON = [
+    ("กล่องไซด์บาร์หน้าจอสั่งงาน + ชุดรับเหรียญ (1 ชิ้น)", 13000, 0, "คอนโทรลแบบ All-in-One + รับเหรียญ"),
+    ("กล่องไซด์บาร์ + ชุดรับเหรียญและแบงก์ (1 ชิ้น)", 15000, 0, "รับเหรียญและแบงก์"),
+    ("กล่องไซด์บาร์ + ชุดรับเหรียญ (สำหรับ Stack บน-ล่าง)", 15500, 0, "สำหรับเครื่องวางซ้อน"),
+    ("กล่องไซด์บาร์ + ชุดรับเหรียญและแบงก์ (Stack บน-ล่าง)", 17500, 0, "สำหรับเครื่องวางซ้อน"),
+    ("เชื่อมต่อระบบสแกน & ระบบปฏิบัติการ iAm Control", 4990, 0, "ต้องมีกล่องไซด์บาร์แล้ว (ต้นทุนคู่ค้า 3,990)"),
+    ("กล่องสแกนออนไลน์สำหรับอุปกรณ์หยอดเหรียญ", 5690, 0, "ติดตั้งกับอุปกรณ์หยอดเหรียญภายในร้าน"),
+    ("เครื่องแลกเหรียญ รุ่นมินิ", 16990, 0, "แพ็กเกจ Franchise แถมมาแล้ว 1 เครื่อง"),
+    ("เครื่องแลกเหรียญ + เซ็นทรัลเพย์เมนต์ (จอ 10 นิ้ว)", 42990, 0, "ฟรีค่าบริการเมื่อเปิดสแกน 3%"),
+    ("เครื่องแลกเหรียญ + เซ็นทรัลเพย์เมนต์ (จอ 22 นิ้ว)", 49000, 0, "ฟรีค่าบริการเมื่อเปิดสแกน 3%"),
+    ("เครื่องจำหน่ายสินค้า 4 ช่อง (พร้อมระบบออนไลน์)", 29990, 0, "แพ็กเกจแถมเครื่องจำหน่ายสินค้ามินิมาแล้ว"),
+    ("เครื่องจำหน่ายสินค้า 8 ช่อง (พร้อมระบบออนไลน์)", 36990, 0, "จ่ายเฉพาะค่าธรรมเนียม 3% ของยอดสแกน"),
+]
+AD_START = p.r
+for label, price, qty, note in ADDON:
+    rr = p.r
+    put(ws, f"A{rr}", label, size=9)
+    put(ws, f"B{rr}", price, fmt=FMT_THB, color=C_IN, fill=YELLOW, align="right", size=9)
+    put(ws, f"C{rr}", qty, fmt=FMT_INT, color=C_IN, fill=YELLOW, align="right", size=9, bold=True)
+    put(ws, f"D{rr}", f"=B{rr}*C{rr}", fmt=FMT_THB, align="right", size=9)
+    for col in "EFG":
+        put(ws, f"{col}{rr}", None, size=9)
+    put(ws, f"H{rr}", note, size=8, color="595959", wrap=True)
+    p.r += 1
+AD_END = p.r - 1
+rr = p.r
+put(ws, f"A{rr}", "รวมอุปกรณ์เสริม / Total add-ons", bold=True, fill=KPIFIL)
+put(ws, f"B{rr}", None, fill=KPIFIL); put(ws, f"C{rr}", None, fill=KPIFIL)
+put(ws, f"D{rr}", f"=SUM(D{AD_START}:D{AD_END})", fmt=FMT_THB, bold=True, align="right", fill=KPIFIL)
+for col in "EFG":
+    put(ws, f"{col}{rr}", None, fill=KPIFIL)
+put(ws, f"H{rr}", "ส่งเข้า A_INPUT อัตโนมัติ", size=8, color="595959", fill=KPIFIL)
+REF[("B_PACKAGES", "addon_tot")] = f"'B_PACKAGES'!$D${rr}"
+p.r += 2
+
+# ---- 5) สิ่งที่รวมอยู่ในแพ็กเกจแล้ว (checklist ใช้คุยกับลูกค้า)
+p.band("5) สิ่งที่รวมอยู่ในแพ็กเกจแล้ว / What's included (ใช้เป็น checklist ตอนเสนอลูกค้า)", "H")
+INCL = [
+    ("ระบบบริหารจัดการร้านออนไลน์", "I'M CONTROL + QR CODE 1 ปี | ลงทะเบียน QR API 1 บัญชี | ติดตั้งและสอนใช้งาน 1 ครั้ง"),
+    ("งานติดตั้งเครื่อง / บำรุงรักษา", "ติดตั้งเครื่องซัก-อบ 1 งาน | บำรุงรักษา S = 1 ครั้ง, M&L = 2 ครั้ง"),
+    ("งานไฟฟ้า 1 เฟส", "ตู้ควบคุมไฟฟ้า + เบรกเกอร์เมน 63A | เดินสายเข้าเครื่อง ≤8 ม. | เดินสายเข้าปั๊มน้ำ | เดินปลั๊ก "
+                       "(ไม่รวมสายเมนและงานมิเตอร์)"),
+    ("งานระบบท่อน้ำเข้า-น้ำทิ้ง", "ถังเก็บน้ำ 1,000 ลิตร | ปั๊มน้ำ 150 วัตต์ | ท่อน้ำเมน 1/2\" ≤8 ม. | "
+                                  "ท่อน้ำทิ้ง PVC 2 1/2\" ≤8 ม. | อ่างล้างมือ"),
+    ("งานระบบแก๊ส + ท่อระบายความร้อน", "ท่อลมร้อน 4\" แบบ 1:1 ≤2.5 ม./เครื่อง | ระบบแก๊สสลับใช้อัตโนมัติ 2 ข้าง ≤4 ม."),
+    ("งานตกแต่ง", "กรุผนังกันชื้น + ทาสี ≤25 ตร.ม. (พร้อมแบบ 3D) | ป้ายกล่องไฟ 60x60 ซม. | ป้ายขั้นตอนใช้งาน 3 ป้าย | "
+                  "ไฟส่องสว่าง 6 + 2 ดวง"),
+    ("อุปกรณ์พิเศษในร้าน", "เครื่องแลกเหรียญ Go Center มินิ 1 | เครื่องจำหน่ายสินค้า Go Center มินิ 1 | "
+                           "กล้องวงจรปิด Wi-Fi 1 | โต๊ะ+เก้าอี้ 2 ชุด | พัดลม 1"),
+    ("การรับประกัน", "เครื่องซัก-อบ 3 ปี | กล่องหยอดเหรียญ 1 ปี (ตามเงื่อนไขการใช้งานปกติ)"),
+]
+for title, detail in INCL:
+    rr = p.r
+    put(ws, f"A{rr}", title, size=10, bold=True)
+    ws.merge_cells(f"B{rr}:H{rr}")
+    put(ws, f"B{rr}", detail, size=9, color="404040", wrap=True)
+    for col in "CDEFGH":
+        ws[f"{col}{rr}"].border = BOX
+    ws.row_dimensions[rr].height = max(16, 13 * (len(detail) // 100 + 1))
+    p.r += 1
+ws.sheet_view.showGridLines = False
+
+def pk(rowkey):
     """INDEX/MATCH ตามรหัสแพ็กเกจที่เลือกใน A_INPUT"""
-    return (f"INDEX('B_PACKAGES'!$D${SUMROWS[rowkey]}:$H${SUMROWS[rowkey]},"
+    return (f"INDEX('B_PACKAGES'!$D${SUMROWS[rowkey]}:$G${SUMROWS[rowkey]},"
             f"MATCH({IN('pkg')},{REF[('B_PACKAGES','pkg_hdr')]},0))")
 
 # ============================================================ A_INPUT
 a = SheetBuilder(wb, "A_INPUT", "C00000")
 ws = a.ws
-for c, w in zip("ABCDE", [56, 20, 18, 14, 54]):
+for c, w in zip("ABCDE", [58, 20, 18, 16, 56]):
     ws.column_dimensions[c].width = w
 ws.merge_cells("A1:E1")
-put(ws, "A1", "การคำนวณ ROI ร้านสะดวกซัก  Samsung Commercial  /  LAUNDROMAT ROI MODEL",
+put(ws, "A1", "การคำนวณ ROI ร้านสะดวกซัก  Samsung Commercial  /  LAUNDROMAT ROI MODEL  v2.0",
     bold=True, size=15, color=C_WHT, fill=NAVY, align="center", border=False)
 ws.row_dimensions[1].height = 30
 ws.merge_cells("A2:E2")
-put(ws, "A2", "กรอกเฉพาะช่องสีเหลือง (Input) → ผลลัพธ์อัปเดตอัตโนมัติ | Fill yellow cells only → results auto-update   "
-              "•  ช่อง override ใส่ 0 = ใช้ค่าจากแพ็กเกจ",
+put(ws, "A2", "กรอกเฉพาะช่องสีเหลือง (Input) → ผลลัพธ์อัปเดตอัตโนมัติ  •  ช่อง override ใส่ 0 = ใช้ค่าจากแพ็กเกจ  •  "
+              "ราคาแพ็กเกจ Samsung เป็นราคารวม VAT และรวมงานติดตั้ง/ตกแต่งแล้ว",
     italic=True, size=9, color="595959", align="center", border=False, fill=GREY)
 a.r = 4
+dv_pkg, dv_mode, dv_util = DV("PackageCode", ws), DV("RevenueMode", ws), DV("UtilityModel", ws)
+dv_yn, dv_cap, dv_vat = DV("YesNo", ws), DV("CapturePct", ws), DV("VatRate", ws)
+dv_owner, dv_loc, dv_pay = DV("Owner", ws), DV("LocType", ws), DV("PayMode", ws)
 
-dv_pkg   = DV("PackageCode", ws)
-dv_mode  = DV("RevenueMode", ws)
-dv_util  = DV("UtilityModel", ws)
-dv_yn    = DV("YesNo", ws)
-dv_cap   = DV("CapturePct", ws)
-dv_vat   = DV("VatRate", ws)
-dv_owner = DV("Owner", ws)
-dv_loc   = DV("LocType", ws)
-
-# ---- 1
 a.band("1) PROJECT INFO / ข้อมูลโครงการ")
-a.inp("proj",  "ชื่อโครงการ / Project name", "Laundromat_สาขาตัวอย่าง", None, "Input", "ใช้แสดงบนหน้า H_PRINT_VIEW")
-a.inp("cust",  "ลูกค้า / Customer", "K.ตัวอย่าง", None, "Input")
-a.inp("loc",   "ทำเล / Location", "ระบุชื่อทำเล", None, "Input")
-a.inp("loctype","ประเภททำเล / Location type", "หน้าหอพัก/คอนโด", None, "เลือก", "มีผลกับสมมติฐานความถี่การใช้บริการ", dv=dv_loc)
-a.inp("owner", "ผู้รับผิดชอบ / Sales owner", "Krittanan", None, "เลือก", dv=dv_owner)
-a.inp("date",  "วันที่ / Date", TODAY, FMT_DATE, "Input")
+a.inp("proj",   "ชื่อโครงการ / Project name", "Laundromat_สาขาตัวอย่าง", None, "Input", "ใช้แสดงบนหน้า I_PRINT_VIEW")
+a.inp("cust",   "ลูกค้า / Customer", "K.ตัวอย่าง", None, "Input")
+a.inp("loc",    "ทำเล / Location", "ระบุชื่อทำเล", None, "Input")
+a.inp("loctype","ประเภททำเล / Location type", "หน้าหอพัก/คอนโด", None, "เลือก",
+      "มีผลกับสมมติฐานความถี่การใช้บริการ", dv=dv_loc)
+a.inp("owner",  "ผู้รับผิดชอบ / Sales owner", "Krittanan", None, "เลือก", dv=dv_owner)
+a.inp("date",   "วันที่ / Date", TODAY, FMT_DATE, "Input")
 a.skip()
 
-# ---- 2
 a.band("2) MARKET SIZE & POPULATION / ขนาดตลาดและประชากร")
-a.inp("pop",     "จำนวนประชากรในรัศมีบริการ (1 กม.) / Population", 3000, FMT_INT, "Input",
+a.inp("pop",     "จำนวนประชากรในรัศมีบริการ (1 กม.)", 3000, FMT_INT, "Input",
       "นับจากจำนวนห้องพัก x คนเฉลี่ย/ห้อง หรือข้อมูลทะเบียนราษฎร์",
-      comment="แนะนำ: นับจำนวนห้องหอพัก/คอนโดในรัศมี 1 กม. x 1.5 คน/ห้อง")
+      comment="แนะนำ: นับห้องหอพัก/คอนโดในรัศมี 1 กม. x 1.5 คน/ห้อง")
 a.inp("capture", "% คาดว่าจะใช้บริการ / Capture rate", 0.35, FMT_PCT, "เลือก/แก้ได้",
       "ทำเลหอพัก 30-40% | หมู่บ้านจัดสรร 15-25%", dv=dv_cap)
-a.inp("comp",    "จำนวนคู่แข่งในรัศมี 500 ม. / Competitors", 1, FMT_INT, "Input",
-      "0 = ไม่มีคู่แข่ง")
+a.inp("comp",    "จำนวนคู่แข่งในรัศมี 500 ม.", 1, FMT_INT, "Input", "0 = ไม่มีคู่แข่ง")
 a.calc("share",  "ตัวคูณส่วนแบ่งตลาด / Market share factor",
        f"=IFERROR(1/(1+{IN('comp')}*0.6),1)", FMT_PCT, "Formula",
        "สูตร 1/(1+คู่แข่ง x 0.6) — ปรับตัวเลข 0.6 ได้ถ้ามีข้อมูลจริง")
 a.calc("cust_n", "จำนวนลูกค้าคาดการณ์ / Estimated customers",
        f"={IN('pop')}*{IN('capture')}*{R('A_INPUT','share')}", FMT_INT, "Formula", "คน/เดือน")
 a.inp("freq",    "ความถี่ใช้บริการ / Usage frequency", 3, FMT_NUM, "Input", "ครั้ง/คน/เดือน")
-a.inp("cyc_visit","รอบซักต่อการมา 1 ครั้ง / Wash cycles per visit", 1.2, FMT_NUM, "Input",
-      "ลูกค้าครอบครัวมักซัก 1.5-2 รอบ/ครั้ง")
-a.inp("dry_att", "% ที่ใช้เครื่องอบด้วย / Dryer attach rate", 0.7, FMT_PCT, "Input",
-      "หน้าฝน/คอนโดสูงถึง 85%")
+a.inp("cyc_visit","รอบซักต่อการมา 1 ครั้ง", 1.2, FMT_NUM, "Input", "ลูกค้าครอบครัวมักซัก 1.5-2 รอบ/ครั้ง")
+a.inp("dry_att", "% ที่ใช้เครื่องอบด้วย / Dryer attach rate", 0.75, FMT_PCT, "Input",
+      "เครื่องอบแก๊ส 45 นาที — หน้าฝน/คอนโดสูงถึง 85%")
 a.calc("dem_w",  "ความต้องการรอบซัก / Wash cycles demand",
        f"={R('A_INPUT','cust_n')}*{IN('freq')}*{IN('cyc_visit')}", FMT_INT, "Formula", "รอบ/เดือน")
 a.calc("dem_d",  "ความต้องการรอบอบ / Dry cycles demand",
        f"={R('A_INPUT','dem_w')}*{IN('dry_att')}", FMT_INT, "Formula", "รอบ/เดือน")
 a.skip()
 
-# ---- 3
 a.band("3) PACKAGE & PRICING / แพ็กเกจและราคา")
-a.inp("pkg",  "เลือกแพ็กเกจ / Package code", "M", None, "เลือก",
-      "S / M / L / XL / CUSTOM (CUSTOM = กรอกจำนวนเครื่องเองที่ชีต B_PACKAGES)", dv=dv_pkg)
+a.inp("pkg",  "เลือกแพ็กเกจ / Package code", "L", None, "เลือก",
+      "S = 3 คู่ 699,000 | M = 4 คู่ 799,000 | L = 5 คู่ 899,000 (Best seller) | CUSTOM = กำหนดเองที่ B_PACKAGES", dv=dv_pkg)
 a.inp("mode", "รูปแบบการคิดรายได้ / Revenue model", "B: แยกเครื่องซัก / เครื่องอบ", None, "เลือก",
-      "โหมด A = คิดราคาเดียวต่อรอบ (ซัก+อบ) แบบฟอร์ม LG | โหมด B = แยกราคาซัก/อบ (แม่นกว่า)", dv=dv_mode)
-a.calc("w_pkg", "เครื่องซักตามแพ็กเกจ / Washers in package", f"={pk_lookup('w_units')}", FMT_INT, "จาก B_PACKAGES", "เครื่อง", color=C_LINK)
-a.calc("d_pkg", "เครื่องอบตามแพ็กเกจ / Dryers in package",  f"={pk_lookup('d_units')}", FMT_INT, "จาก B_PACKAGES", "เครื่อง", color=C_LINK)
+      "โหมด A = ราคาเดียวต่อรอบ (ซัก+อบ) | โหมด B = แยกราคาซัก/อบ (แนะนำ เพราะเวลารอบต่างกัน 36 vs 45 นาที)", dv=dv_mode)
+a.calc("w_pkg", "เครื่องซักตามแพ็กเกจ", f"={pk('w_units')}", FMT_INT, "จาก B_PACKAGES", "เครื่อง", color=C_LINK)
+a.calc("d_pkg", "เครื่องอบตามแพ็กเกจ",  f"={pk('d_units')}", FMT_INT, "จาก B_PACKAGES", "เครื่อง", color=C_LINK)
 a.inp("w_ov",  "override จำนวนเครื่องซัก (0 = ใช้แพ็กเกจ)", 0, FMT_INT, "Input")
 a.inp("d_ov",  "override จำนวนเครื่องอบ (0 = ใช้แพ็กเกจ)", 0, FMT_INT, "Input")
-a.inp("price_w", "ราคา/รอบ เครื่องซัก (0 = ใช้ค่าเฉลี่ยแพ็กเกจ)", 0, FMT_THB, "Input", "บาท/รอบ")
-a.inp("price_d", "ราคา/รอบ เครื่องอบ (0 = ใช้ค่าเฉลี่ยแพ็กเกจ)", 0, FMT_THB, "Input", "บาท/รอบ")
-a.inp("price_c", "ราคา/รอบ รวมซัก+อบ (ใช้เฉพาะโหมด A)", 80, FMT_THB, "Input", "บาท/รอบ")
-a.inp("cyc_w", "เวลา/รอบซัก (0 = ใช้ค่าแพ็กเกจ)", 0, FMT_NUM, "Input", "นาที")
-a.inp("cyc_d", "เวลา/รอบอบ (0 = ใช้ค่าแพ็กเกจ)", 0, FMT_NUM, "Input", "นาที")
-a.inp("cyc_c", "เวลา/รอบ รวมซัก+อบ (ใช้เฉพาะโหมด A)", 76, FMT_NUM, "Input", "นาที")
-a.inp("chg",   "เวลาโหลด-ปลดผ้า+รอเครื่องว่าง / Changeover", 6, FMT_NUM, "Input",
-      "นาที/รอบ — ทำให้ capacity สมจริงขึ้น (ฟอร์ม LG ไม่คิดส่วนนี้)")
+a.calc("w_act","เครื่องซักที่ใช้จริง", f"=IF({IN('w_ov')}>0,{IN('w_ov')},{IN('w_pkg')})", FMT_INT, "Formula", "เครื่อง")
+a.calc("d_act","เครื่องอบที่ใช้จริง", f"=IF({IN('d_ov')}>0,{IN('d_ov')},{IN('d_pkg')})", FMT_INT, "Formula", "เครื่อง")
+a.calc("t_act","รวมเครื่องทั้งหมด", f"={R('A_INPUT','w_act')}+{R('A_INPUT','d_act')}", FMT_INT, "Formula",
+       "ใช้คิดค่าบริการรายเดือน 100 บาท/เครื่อง (1 Stack = 2 เครื่อง)", bold=True)
+a.inp("price_w", "ราคา/รอบ เครื่องซัก 18 kg", 50, FMT_THB, "Input", "บาท/รอบ — ราคาตลาด 40-60 บาท")
+a.inp("price_d", "ราคา/รอบ เครื่องอบ 14 kg", 50, FMT_THB, "Input", "บาท/รอบ — อบแก๊ส 45 นาที ตลาด 40-60 บาท")
+a.inp("price_c", "ราคา/รอบ รวมซัก+อบ (ใช้เฉพาะโหมด A)", 100, FMT_THB, "Input", "บาท/รอบ")
+a.inp("cyc_w", "เวลา/รอบซัก (0 = ใช้ค่าจาก B_PACKAGES = 36 นาที)", 0, FMT_NUM, "Input", "นาที")
+a.inp("cyc_d", "เวลา/รอบอบ (0 = ใช้ค่าจาก B_PACKAGES = 45 นาที)", 0, FMT_NUM, "Input", "นาที")
+a.inp("cyc_c", "เวลา/รอบ รวมซัก+อบ (ใช้เฉพาะโหมด A)", 81, FMT_NUM, "Input", "นาที (36 + 45)")
+a.inp("chg",   "เวลาโหลด-ปลดผ้า + รอเครื่องว่าง", 6, FMT_NUM, "Input",
+      "นาที/รอบ — ทำให้ capacity สมจริงขึ้น")
 a.skip()
 
-# ---- 4
 a.band("4) CAPEX / เงินลงทุน")
-a.calc("capex_m_p", "CAPEX เครื่อง+อุปกรณ์ (จากแพ็กเกจ)", f"={pk_lookup('capex_m')}", FMT_THB, "จาก B_PACKAGES", color=C_LINK)
-a.calc("capex_f_p", "CAPEX ตกแต่ง/ติดตั้ง (จากแพ็กเกจ)", f"={pk_lookup('capex_fit')}", FMT_THB, "จาก B_PACKAGES", color=C_LINK)
-a.inp("capex_m_ov", "override CAPEX เครื่อง (0 = ใช้แพ็กเกจ)", 0, FMT_THB, "Input", "ใส่ตัวเลขจากใบเสนอราคาจริง")
-a.inp("capex_f_ov", "override CAPEX ตกแต่ง (0 = ใช้แพ็กเกจ)", 0, FMT_THB, "Input")
-a.inp("capex_other","CAPEX อื่นๆ / Other CAPEX", 0, FMT_THB, "Input", "เช่น ค่าเซ้ง ค่าโอนมิเตอร์ ค่าที่ปรึกษา")
-a.inp("dep_month",  "เงินประกันค่าเช่า / Rent deposit", 3, FMT_NUM, "Input", "จำนวนเดือน (คืนเมื่อเลิกสัญญา)")
-a.inp("wcap",       "เงินทุนหมุนเวียน / Working capital", 100000, FMT_THB, "Input", "เงินสดสำรอง 2-3 เดือนของ OPEX")
+a.calc("capex_pkg_r", "ราคาแพ็กเกจ Franchise (รวม VAT)", f"={pk('price_pkg')}", FMT_THB,
+       "จาก B_PACKAGES", "รวมเครื่อง ติดตั้ง งานระบบ งานตกแต่ง อุปกรณ์แถม และระบบ 1 ปี", color=C_LINK)
+a.inp("capex_pkg_ov", "override ราคาแพ็กเกจ (0 = ใช้ราคาตาราง)", 0, FMT_THB, "Input", "ใส่ราคาหลังต่อรอง/ส่วนลดจริง")
+a.calc("capex_prep_r","CAPEX นอกแพ็กเกจ (ลูกค้าเตรียมเอง)", f"={pk('prep_tot')}", FMT_THB,
+       "จาก B_PACKAGES", "งานไฟเมน มิเตอร์ ประปา แท่นเครื่อง ฝ้า-พื้น ถังแก๊ส เน็ต ขนส่ง", color=C_LINK)
+a.calc("capex_addon_r","อุปกรณ์เสริมซื้อเพิ่ม", f"={REF[('B_PACKAGES','addon_tot')]}", FMT_THB,
+       "จาก B_PACKAGES", "กล่องไซด์บาร์ / เครื่องแลกเหรียญ / ตู้จำหน่ายสินค้า", color=C_LINK)
+a.inp("capex_other", "CAPEX อื่นๆ / Other CAPEX", 0, FMT_THB, "Input", "เช่น ค่าเซ้งร้าน ค่าที่ปรึกษา")
+a.inp("mach_share", "% ของราคาแพ็กเกจที่เป็นตัวเครื่อง", 0.7, FMT_PCT, "Input",
+      "ใช้แยกตัดค่าเสื่อม: ส่วนเครื่อง 8 ปี / ส่วนงานตกแต่ง-ติดตั้ง 5 ปี")
+a.inp("dep_month",  "เงินประกันค่าเช่า / Rent deposit", 3, FMT_NUM, "Input", "จำนวนเดือน (ได้คืนเมื่อเลิกสัญญา)")
+a.inp("wcap",       "เงินทุนหมุนเวียน / Working capital", 150000, FMT_THB, "Input",
+      "เงินสดสำรอง 2-3 เดือนของ OPEX + เงินทอน/เหรียญในเครื่องแลกเหรียญ")
 a.inp("vat",        "VAT %", 0.07, FMT_PCT, "เลือก", dv=dv_vat)
 a.inp("vat_reg",    "จดทะเบียน VAT? / VAT registered", "No / ไม่ใช่", None, "เลือก",
-      "ถ้า No → VAT ซื้อเครื่องถือเป็นต้นทุน (บวกเข้า CAPEX)", dv=dv_yn)
+      "ถ้า Yes → ขอคืน VAT ได้ ระบบจะถอด VAT ออกจาก CAPEX (หาร 1.07)", dv=dv_yn)
 a.skip()
 
-# ---- 5
 a.band("5) OPERATION / การดำเนินงาน")
-a.inp("open_h", "ชั่วโมงเปิด/วัน / Open hours per day", 24, FMT_NUM, "Input", "24 ชม. = ตู้หยอดเหรียญอัตโนมัติ")
-a.inp("wd_util","% ใช้งานวันธรรมดา / Weekday utilization", 0.35, FMT_PCT, "Input", "ค่าอ้างอิงฟอร์ม LG = 35%")
-a.inp("we_util","% ใช้งานวันหยุด / Weekend utilization", 0.65, FMT_PCT, "Input", "ค่าอ้างอิงฟอร์ม LG = 65%")
+a.inp("open_h", "ชั่วโมงเปิด/วัน / Open hours per day", 24, FMT_NUM, "Input", "24 ชม. = ระบบหยอดเหรียญ/สแกนอัตโนมัติ")
+a.inp("wd_util","% ใช้งานวันธรรมดา / Weekday utilization", 0.35, FMT_PCT, "Input", "ค่าอ้างอิงฟอร์มเดิม = 35%")
+a.inp("we_util","% ใช้งานวันหยุด / Weekend utilization", 0.65, FMT_PCT, "Input", "ค่าอ้างอิงฟอร์มเดิม = 65%")
 a.inp("wd_days","จำนวนวันธรรมดา/เดือน", 22, FMT_INT, "Input")
 a.inp("we_days","จำนวนวันหยุด/เดือน", 8, FMT_INT, "Input")
 a.calc("days",  "รวมวันเปิดบริการ/เดือน", f"={IN('wd_days')}+{IN('we_days')}", FMT_INT, "Formula", "วัน")
 a.inp("o2o_on", "เปิดบริการรับ-ส่งผ้า O2O?", "No / ไม่ใช่", None, "เลือก", dv=dv_yn)
-a.inp("o2o_ord","ออเดอร์ O2O ต่อวัน / O2O orders per day", 0, FMT_NUM, "Input", "บิล/วัน")
-a.inp("o2o_cyc","รอบต่อ 1 ออเดอร์ O2O / Cycles per order", 2, FMT_NUM, "Input", "ซัก 1 + อบ 1")
-a.inp("o2o_tk", "ยอดเฉลี่ยต่อบิล O2O / Avg ticket", 0, FMT_THB, "Input", "บาท/บิล")
-a.inp("o2o_fee","ค่าธรรมเนียมแพลตฟอร์ม / Platform fee", 0.0, FMT_PCT, "Input", "% ของยอด O2O")
-a.inp("o2o_rd", "ค่าส่ง (ไรเดอร์) / Rider cost", 0.0, FMT_PCT, "Input", "% ของยอด O2O")
+a.inp("o2o_ord","ออเดอร์ O2O ต่อวัน", 0, FMT_NUM, "Input", "บิล/วัน")
+a.inp("o2o_cyc","รอบต่อ 1 ออเดอร์ O2O", 2, FMT_NUM, "Input", "ซัก 1 + อบ 1")
+a.inp("o2o_tk", "ยอดเฉลี่ยต่อบิล O2O", 0, FMT_THB, "Input", "บาท/บิล")
+a.inp("o2o_fee","ค่าธรรมเนียมแพลตฟอร์ม", 0.0, FMT_PCT, "Input", "% ของยอด O2O")
+a.inp("o2o_rd", "ค่าส่ง (ไรเดอร์)", 0.0, FMT_PCT, "Input", "% ของยอด O2O")
 a.skip()
 
-# ---- 6
 a.band("6) OTHER REVENUE / รายได้เสริม")
-a.inp("vend_att","% ลูกค้าที่ซื้อน้ำยา-ของใช้ / Vending attach", 0.25, FMT_PCT, "Input")
-a.inp("vend_sp", "ยอดซื้อเฉลี่ย/คน / Avg vending spend", 25, FMT_THB, "Input", "บาท/ครั้ง")
-a.inp("vend_gp", "%กำไรขั้นต้นสินค้า vending / GP%", 0.45, FMT_PCT, "Input")
-a.inp("extra",   "รายได้อื่น (ตู้กดน้ำ/ตู้เกม/ตู้คีบ) / Other income", 0, FMT_THB, "Input",
-      "บาท/เดือน — เหมาะกับการวางตู้เสริมหน้าร้านสะดวกซัก")
-a.inp("extra_gp","%กำไรขั้นต้นรายได้อื่น / GP%", 0.7, FMT_PCT, "Input")
+a.inp("vend_att","% ลูกค้าที่ซื้อน้ำยา-ของใช้ (ตู้จำหน่ายสินค้า)", 0.25, FMT_PCT, "Input")
+a.inp("vend_sp", "ยอดซื้อเฉลี่ย/คน", 25, FMT_THB, "Input", "บาท/ครั้ง")
+a.inp("vend_gp", "%กำไรขั้นต้นสินค้า vending", 0.45, FMT_PCT, "Input")
+a.inp("extra",   "รายได้อื่น (ตู้กดน้ำ/ตู้เกม/ตู้คีบ)", 0, FMT_THB, "Input",
+      "บาท/เดือน — วางตู้เสริมหน้าร้านเพิ่มรายได้ต่อพื้นที่")
+a.inp("extra_gp","%กำไรขั้นต้นรายได้อื่น", 0.7, FMT_PCT, "Input")
 a.skip()
 
-# ---- 7
 a.band("7) MONTHLY COSTS (OPEX) / ค่าใช้จ่ายต่อเดือน")
 a.sub("7.1) FIXED COST / ค่าใช้จ่ายคงที่")
-a.inp("rent",    "ค่าเช่า / Rent", 20000, FMT_THB, "Input", "บาท/เดือน")
-a.inp("rent_esc","อัตราปรับค่าเช่าต่อปี / Rent escalation", 0.05, FMT_PCT, "Input", "ปกติสัญญา 3 ปี ปรับ 5-10%")
-a.inp("staff",   "ค่าจ้างพนักงาน / Staff", 15000, FMT_THB, "Input", "บาท/เดือน (รวมประกันสังคมส่วนนายจ้าง)")
-a.inp("ins",     "ประกันภัย / Insurance", 1200, FMT_THB, "Input", "ประกันทรัพย์สิน+บุคคลที่ 3")
-a.inp("clean",   "ทำความสะอาด + เก็บเหรียญ / Cleaning & Coin collection", 3000, FMT_THB, "Input")
-a.calc("maint",  "ค่าบำรุงรักษาตามสัญญา / Maintenance (contract)",
-       0, FMT_THB, "จาก F_SERVICE", "เฉลี่ยต่อเดือนจากแพ็กเกจบริการ (ลิงก์อัตโนมัติ)", color=C_LINK)
-a.inp("mkt",     "การตลาด / Marketing", 3000, FMT_THB, "Input", "ป้าย โปรโมชั่น ค่าโฆษณาออนไลน์")
-a.inp("pos",     "เน็ต + ระบบ POS/แอป / Internet & Software", 1500, FMT_THB, "Input")
-a.inp("other_f", "ค่าใช้จ่ายคงที่อื่นๆ / Other fixed", 0, FMT_THB, "Input")
+a.inp("rent",    "ค่าเช่า / Rent", 25000, FMT_THB, "Input", "บาท/เดือน")
+a.inp("rent_esc","อัตราปรับค่าเช่าต่อปี", 0.05, FMT_PCT, "Input", "ปกติสัญญา 3 ปี ปรับ 5-10%")
+a.inp("staff",   "ค่าจ้างพนักงาน / Staff", 12000, FMT_THB, "Input",
+      "บาท/เดือน — ร้าน built-in ใช้พนักงาน part-time ดูแลความสะอาด")
+a.inp("ins",     "ประกันภัย / Insurance", 1200, FMT_THB, "Input", "ประกันทรัพย์สิน + บุคคลที่ 3")
+a.inp("clean",   "ทำความสะอาด + เก็บเหรียญ", 3000, FMT_THB, "Input")
+a.calc("maint",  "ค่าบำรุงรักษาเครื่อง (หลังปีแรก)", 0, FMT_THB, "จาก F_SERVICE",
+       "ลิงก์อัตโนมัติจากชีต F_SERVICE", color=C_LINK)
+a.calc("sysfee", "ค่าบริการระบบ I'M CONTROL (หลังปีแรก)", 0, FMT_THB, "จาก F_SERVICE",
+       "ลิงก์อัตโนมัติ — เป็น 0 ถ้าเลือกเปิดสแกน 3%", color=C_LINK)
+a.inp("mkt",     "การตลาด / Marketing", 3000, FMT_THB, "Input", "โปรโมชั่น ป้าย โฆษณาออนไลน์")
+a.inp("pos",     "ค่าอินเทอร์เน็ตรายเดือน", 800, FMT_THB, "Input", "จำเป็นต่อระบบ I'M CONTROL")
+a.inp("other_f", "ค่าใช้จ่ายคงที่อื่นๆ", 0, FMT_THB, "Input")
 a.calc("fix_tot","รวมค่าใช้จ่ายคงที่ / TOTAL FIXED COST",
-       f"=SUM({IN('rent')},{IN('staff')},{IN('ins')},{IN('clean')},{R('A_INPUT','maint')},{IN('mkt')},{IN('pos')},{IN('other_f')})",
-       FMT_THB, "Formula", "บาท/เดือน (ยังไม่รวมค่าน้ำ-ไฟ)", bold=True, fill=KPIFIL)
+       f"=SUM({IN('rent')},{IN('staff')},{IN('ins')},{IN('clean')},{R('A_INPUT','maint')},"
+       f"{R('A_INPUT','sysfee')},{IN('mkt')},{IN('pos')},{IN('other_f')})",
+       FMT_THB, "Formula", "บาท/เดือน (ยังไม่รวมค่าน้ำ-ไฟ-แก๊ส)", bold=True, fill=KPIFIL)
 a.sub("7.2) VARIABLE COST / ค่าใช้จ่ายผันแปร")
-a.inp("util_mode","โมเดลค่าน้ำ-ไฟ / Utilities model", "1: % ของยอดขาย", None, "เลือก",
-      "โมเดล 1 = ประมาณเป็น % ของยอดขาย | โมเดล 2 = คำนวณจาก kWh และลิตรต่อรอบจริง", dv=dv_util)
-a.inp("elec_p",  "ค่าไฟ (% ของยอดขาย) / Electricity %", 0.12, FMT_PCT, "โมเดล 1", "ค่าอ้างอิงฟอร์ม LG = 12%")
-a.inp("water_p", "ค่าน้ำ (% ของยอดขาย) / Water %", 0.02, FMT_PCT, "โมเดล 1", "ค่าอ้างอิงฟอร์ม LG = 2%")
-a.inp("elec_r",  "ค่าไฟต่อหน่วย / Electricity tariff", 4.8, FMT_THB2, "โมเดล 2", "บาท/kWh (รวม Ft + VAT)")
-a.inp("water_r", "ค่าน้ำต่อหน่วย / Water tariff", 18, FMT_THB2, "โมเดล 2", "บาท/ลูกบาศก์เมตร")
-a.inp("base_kwh","ค่าไฟส่วนกลาง (แอร์/ไฟ/ป้าย) / Base electricity", 3500, FMT_THB, "Input", "บาท/เดือน คงที่")
-a.inp("cons_cyc","วัสดุสิ้นเปลืองต่อรอบ / Consumable per cycle", 2.5, FMT_THB2, "Input", "บาท/รอบ (น้ำยา ถุง ฯลฯ)")
-a.inp("epay_p",  "ค่าธรรมเนียมรับชำระเงิน / e-Payment fee", 0.015, FMT_PCT, "Input", "% ของยอดที่จ่ายผ่าน QR/บัตร")
-a.inp("epay_sh", "สัดส่วนยอดที่จ่ายแบบไม่ใช้เหรียญ / Cashless share", 0.4, FMT_PCT, "Input")
-a.inp("repair_p","ค่าซ่อมผันแปร / Variable repair", 0.02, FMT_PCT, "Input", "% ของยอดขาย (นอกประกัน)")
-a.inp("royal_p", "ค่าสิทธิ์/แฟรนไชส์ / Royalty fee", 0.0, FMT_PCT, "Input", "% ของยอดขาย")
+a.inp("util_mode","โมเดลค่าน้ำ-ไฟ / Utilities model", "2: คำนวณจากหน่วยจริง (kWh/ลิตร)", None, "เลือก",
+      "โมเดล 1 = ประมาณเป็น % ของยอดขาย | โมเดล 2 = คำนวณจาก kWh/ลิตรต่อรอบ (แม่นกว่า) — "
+      "ค่าแก๊สคิดแยกทุกกรณี", dv=dv_util)
+a.inp("elec_p",  "ค่าไฟ (% ของยอดขาย)", 0.12, FMT_PCT, "โมเดล 1", "ค่าอ้างอิงฟอร์มเดิม = 12%")
+a.inp("water_p", "ค่าน้ำ (% ของยอดขาย)", 0.02, FMT_PCT, "โมเดล 1", "ค่าอ้างอิงฟอร์มเดิม = 2%")
+a.inp("elec_r",  "ค่าไฟต่อหน่วย", 4.8, FMT_THB2, "โมเดล 2", "บาท/kWh (รวม Ft + VAT)")
+a.inp("water_r", "ค่าน้ำต่อหน่วย", 18, FMT_THB2, "โมเดล 2", "บาท/ลูกบาศก์เมตร")
+a.inp("gas_r",   "ค่าแก๊ส LPG ต่อกิโลกรัม", 25, FMT_THB2, "Input",
+      "บาท/กก. — เครื่องอบ Samsung เป็นระบบแก๊ส คิดแยกจากค่าไฟทุกโมเดล")
+a.inp("base_kwh","ค่าไฟส่วนกลาง (แอร์/ไฟ/ป้าย/CCTV)", 3500, FMT_THB, "Input", "บาท/เดือน คงที่")
+a.inp("cons_cyc","วัสดุสิ้นเปลืองต่อรอบ", 2.5, FMT_THB2, "Input", "บาท/รอบ (น้ำยา ถุง ฯลฯ)")
+a.inp("pay_mode","ระบบรับชำระเงิน / Payment mode", PAY_SCAN, None, "เลือก",
+      "เปิดสแกน 3% → ฟรีค่าบริการรายเดือน/สาขา/ปี | ไม่เปิดสแกน → จ่ายค่าบริการระบบ (ดู F_SERVICE)", dv=dv_pay)
+a.inp("scan_fee","ค่าธรรมเนียมสแกน PromptPay", 0.03, FMT_PCT, "Input", "3% คิดเฉพาะยอดที่สแกนเท่านั้น")
+a.inp("scan_share","% ยอดขายที่ชำระผ่านสแกน", 0.6, FMT_PCT, "Input",
+      "ส่วนที่เหลือเป็นเหรียญ/แบงก์ (ไม่เสียค่าธรรมเนียม)")
+a.inp("repair_p","ค่าซ่อมผันแปร (นอกประกัน)", 0.01, FMT_PCT, "Input",
+      "% ของยอดขาย — ต่ำใน 3 ปีแรกเพราะมีประกันเครื่อง")
+a.inp("royal_p", "ค่าสิทธิ์/แฟรนไชส์รายเดือน", 0.0, FMT_PCT, "Input", "% ของยอดขาย (Samsung ไม่เก็บ royalty)")
 a.skip()
 
-# ---- 8
 a.band("8) FINANCE & TAX / แหล่งเงินทุนและภาษี")
 a.inp("loan_p",  "สัดส่วนเงินกู้ / Loan % of CAPEX", 0.0, FMT_PCT, "Input", "0% = ลงทุนด้วยเงินสดทั้งหมด")
-a.inp("loan_r",  "ดอกเบี้ยเงินกู้ต่อปี / Interest rate", 0.075, FMT_PCT, "Input", "สินเชื่อ SME 6.5-9%")
-a.inp("loan_y",  "ระยะเวลาผ่อน / Loan term", 5, FMT_INT, "Input", "ปี")
-a.inp("dep_y_m", "อายุตัดค่าเสื่อมเครื่อง / Machine depreciation", 8, FMT_INT, "Input", "ปี (เส้นตรง)")
-a.inp("dep_y_f", "อายุตัดค่าเสื่อมตกแต่ง / Fit-out depreciation", 5, FMT_INT, "Input", "ปี (เส้นตรง)")
-a.inp("tax_r",   "อัตราภาษีเงินได้ / Corporate tax", 0.2, FMT_PCT, "Input",
+a.inp("loan_r",  "ดอกเบี้ยเงินกู้ต่อปี", 0.075, FMT_PCT, "Input", "สินเชื่อ SME 6.5-9%")
+a.inp("loan_y",  "ระยะเวลาผ่อน", 5, FMT_INT, "Input", "ปี")
+a.inp("dep_y_m", "อายุตัดค่าเสื่อมเครื่อง", 8, FMT_INT, "Input", "ปี (เส้นตรง) — ดู health check อายุตามจำนวนรอบด้วย")
+a.inp("dep_y_f", "อายุตัดค่าเสื่อมงานตกแต่ง/ติดตั้ง", 5, FMT_INT, "Input", "ปี (เส้นตรง)")
+a.inp("tax_r",   "อัตราภาษีเงินได้", 0.2, FMT_PCT, "Input",
       "นิติบุคคลทั่วไป 20% | SME กำไร<300k ยกเว้น, 300k-3M = 15%")
 a.inp("disc_r",  "อัตราคิดลด / Discount rate (WACC)", 0.1, FMT_PCT, "Input", "ใช้คำนวณ NPV/IRR")
-a.inp("growth",  "อัตราเติบโตยอดขายต่อปี / Revenue growth", 0.05, FMT_PCT, "Input", "ปีที่ 2 เป็นต้นไป")
+a.inp("growth",  "อัตราเติบโตยอดขายต่อปี", 0.05, FMT_PCT, "Input", "ปีที่ 2 เป็นต้นไป")
 a.inp("horizon", "ระยะเวลาประเมิน / Evaluation horizon", 5, FMT_INT, "Input", "ปี (สูงสุด 5)")
 ws.freeze_panes = "A4"
 ws.sheet_view.showGridLines = False
@@ -510,99 +527,90 @@ ws.sheet_view.showGridLines = False
 # ============================================================ F_SERVICE
 s = SheetBuilder(wb, "F_SERVICE", "7030A0")
 ws = s.ws
-for c, w in zip("ABCDEFGH", [36, 16, 14, 12, 14, 14, 14, 40]):
+for c, w in zip("ABCDE", [52, 20, 18, 16, 56]):
     ws.column_dimensions[c].width = w
-ws.merge_cells("A1:H1")
-put(ws, "A1", "F) SERVICE, WARRANTY & MAINTENANCE PROGRAM / แพ็กเกจรับประกันและบำรุงรักษา",
+ws.merge_cells("A1:E1")
+put(ws, "A1", "F) WARRANTY, MAINTENANCE & SYSTEM FEE / ประกัน บำรุงรักษา และค่าบริการระบบ",
     bold=True, size=14, color=C_WHT, fill=NAVY, align="left", border=False)
 ws.row_dimensions[1].height = 26
-put(ws, "A2", "โครงสร้างอ้างอิงฟอร์ม Franchise Maintenance Pgm. (Extended Warranty + Maintenance Package + Extra Visit Fee) — แก้ราคาตามเงื่อนไขผู้ผลิตจริง",
+put(ws, "A2", SRC + "  |  ปีแรกทุกอย่างรวมอยู่ในราคาแพ็กเกจแล้ว — ชีตนี้คิดค่าใช้จ่ายตั้งแต่ปีที่ 2 เป็นต้นไป",
     italic=True, size=9, color="C00000", border=False)
 s.r = 4
-dv_sp = DV("ServicePack", ws)
-dv_wr = DV("Warranty", ws)
 
-s.band("1) EXTENDED WARRANTY / ประกันขยายเวลา", "H")
-s.hdr({"A": "รุ่น / Model", "B": "ระยะประกัน / Period", "C": "ราคา/เครื่อง (EA)",
-       "D": "จำนวน / Qty", "E": "รวม / Sub total", "F": "จากแพ็กเกจ",
-       "G": "", "H": "หมายเหตุ"}, "H")
-s.inp("wr_period", "ระยะประกันที่เลือก / Warranty period", "2+2 ปี", None, "เลือก",
-      "2+2 = ประกันมาตรฐาน 2 ปี + ขยายอีก 2 ปี", dv=dv_wr)
-W_START = s.r
-WR_PRICE = {"W14": 4100, "W21": 4600, "W28": 5200, "D15": 2700, "D25": 3100}
-for i, m in enumerate(MACHINES[:5]):
-    rr = s.r
-    mrow = M_START + i
-    qrow = Q_START + i
-    put(ws, f"A{rr}", f"='B_PACKAGES'!$B${mrow}", size=9, color=C_LINK)
-    put(ws, f"B{rr}", f"={R('F_SERVICE','wr_period')}", size=9, align="center", color=C_LINK)
-    put(ws, f"C{rr}", WR_PRICE[m[0]], fmt=FMT_THB, color=C_IN, fill=YELLOW, align="right", size=9)
-    put(ws, f"D{rr}", f"=F{rr}", fmt=FMT_INT, align="right", size=9)
-    put(ws, f"E{rr}", f"=C{rr}*D{rr}", fmt=FMT_THB, align="right", size=9)
-    put(ws, f"F{rr}", f"=INDEX('B_PACKAGES'!$D${qrow}:$H${qrow},MATCH({IN('pkg')},{REF[('B_PACKAGES','pkg_hdr')]},0))",
-        fmt=FMT_INT, align="right", size=9, color=C_LINK)
-    put(ws, f"G{rr}", "", size=9)
-    put(ws, f"H{rr}", "ราคาต่อเครื่อง ต่อรอบสัญญา", size=8, color="595959")
-    s.r += 1
-W_END = s.r - 1
-rr = s.r
-put(ws, f"A{rr}", "รวมค่าประกันขยายเวลา / Total extended warranty", bold=True, size=10)
-for col in "BCD":
-    put(ws, f"{col}{rr}", None, fill=KPIFIL)
-put(ws, f"E{rr}", f"=SUM(E{W_START}:E{W_END})", fmt=FMT_THB, bold=True, fill=KPIFIL, align="right")
-put(ws, f"F{rr}", None, fill=KPIFIL); put(ws, f"G{rr}", None, fill=KPIFIL)
-put(ws, f"H{rr}", "จ่ายครั้งเดียว — ตัดเฉลี่ยตามจำนวนปีที่ขยาย", size=8, color="595959", fill=KPIFIL)
-REF[("F_SERVICE", "wr_total")] = f"'F_SERVICE'!$E${rr}"
-s.r += 2
-
-s.band("2) MAINTENANCE PACKAGE / แพ็กเกจบำรุงรักษา", "H")
-s.text("Package A : Minor x3 (เดือนที่ 3, 6, 9) + Major x1 (เดือนที่ 12)", bold=True)
-s.text("Package B : Major x2 (เดือนที่ 6, 12)", bold=True)
-s.inp("sv_pack", "เลือกแพ็กเกจบริการ / Service package", "Package A (Minor x3 + Major x1)",
-      None, "เลือก", "เลือก 'ไม่ซื้อ' ถ้าลูกค้าดูแลเอง", dv=dv_sp)
-s.inp("pa_ea", "Package A: ราคาต่อชุด / EA", 11495, FMT_THB, "Input", "บาท/เครื่อง/ปี")
-s.inp("pb_ea", "Package B: ราคาต่อชุด / EA", 13680, FMT_THB, "Input", "บาท/เครื่อง/ปี")
-s.calc("sv_qty", "จำนวนเครื่องที่เข้าโปรแกรม / Qty",
-       f"={pk_lookup('w_units')}+{pk_lookup('d_units')}", FMT_INT, "จาก B_PACKAGES", "เครื่อง", color=C_LINK)
-s.calc("sv_year", "ค่าบำรุงรักษาต่อปี / Maintenance per year",
-       f'=IF({R("F_SERVICE","sv_pack")}="Package A (Minor x3 + Major x1)",{R("F_SERVICE","pa_ea")},'
-       f'IF({R("F_SERVICE","sv_pack")}="Package B (Major x2)",{R("F_SERVICE","pb_ea")},0))*{R("F_SERVICE","sv_qty")}',
-       FMT_THB, "Formula", "บาท/ปี", bold=True)
+s.band("1) สิ่งที่รวมอยู่ในแพ็กเกจแล้ว / Included in package")
+s.calc("wr_mach", "ประกันเครื่องซัก-อบ", f"={pk('warranty_y')}", FMT_INT, "จาก B_PACKAGES",
+       "ปี — สูงสุดในไทย ตามเงื่อนไขการใช้งานปกติ", color=C_LINK)
+s.inp("wr_coin",  "ประกันกล่องหยอดเหรียญ", 1, FMT_INT, "Input", "ปี")
+s.calc("mt_first","งานบำรุงรักษาที่รวมในปีแรก", f"={pk('maint_first')}", FMT_INT, "จาก B_PACKAGES",
+       "ครั้ง — S = 1 ครั้ง, M&L = 2 ครั้ง", color=C_LINK)
+s.calc("imc_free","ระบบ I'M CONTROL + ค่าบริการ ฟรี", f"={pk('imc_free')}", FMT_INT, "จาก B_PACKAGES",
+       "ปี — รวมระบบจ่ายเงิน QR CODE และ QR API 1 บัญชี", color=C_LINK)
 s.skip()
 
-s.band("3) EXTRA VISIT FEE / ค่าเดินทางนอกพื้นที่", "H")
-s.inp("km_in",   "ระยะทางจากศูนย์บริการ / Distance", 60, FMT_NUM, "Input", "กิโลเมตร (เที่ยวเดียว) — ฟอร์มอ้างอิงเดิมใช้ 112 กม.")
-s.inp("km_free", "ระยะฟรี / Free radius", 40, FMT_NUM, "Input", "กิโลเมตร")
-s.inp("km_rate", "ค่าเดินทาง/กม. / Rate per km", 160, FMT_THB2, "Input", "บาท/กม. (ไป-กลับรวมแล้ว)")
-s.calc("km_ex",  "ระยะส่วนเกิน / Extra km", f"=MAX(0,{R('F_SERVICE','km_in')}-{R('F_SERVICE','km_free')})",
-       FMT_NUM, "Formula", "กม.")
-s.calc("visit_fee", "ค่าเดินทางต่อเที่ยว / Cost per visit",
-       f"={R('F_SERVICE','km_ex')}*{R('F_SERVICE','km_rate')}", FMT_THB, "Formula", "บาท/เที่ยว")
-s.calc("visits", "จำนวนเที่ยวต่อปี / Visits per year",
-       f'=IF({R("F_SERVICE","sv_pack")}="Package A (Minor x3 + Major x1)",4,'
-       f'IF({R("F_SERVICE","sv_pack")}="Package B (Major x2)",2,0))', FMT_INT, "Formula", "เที่ยว/ปี")
-s.calc("km_year", "ค่าเดินทางรวมต่อปี / Extra visit fee per year",
-       f"={R('F_SERVICE','visit_fee')}*{R('F_SERVICE','visits')}", FMT_THB, "Formula", "บาท/ปี", bold=True)
+s.band("2) ค่าบำรุงรักษาหลังปีแรก / Maintenance from year 2")
+s.inp("mt_rate",  "ค่าบำรุงรักษาต่อครั้ง (ทั้งร้าน)", 3500, FMT_THB, "Input",
+      "บาท/ครั้ง — ยังไม่ใช่ราคาทางการ ต้องยืนยันกับ Samsung")
+s.inp("mt_times", "จำนวนครั้งต่อปี", 2, FMT_INT, "Input", "ครั้ง/ปี (เท่ากับที่แพ็กเกจ M&L ให้)")
+s.calc("mt_year", "ค่าบำรุงรักษาต่อปี", f"={R('F_SERVICE','mt_rate')}*{R('F_SERVICE','mt_times')}",
+       FMT_THB, "Formula", "บาท/ปี")
+s.calc("mt_month","ค่าบำรุงรักษาเฉลี่ยต่อเดือน (ส่งไป A_INPUT)",
+       f"={R('F_SERVICE','mt_year')}/12", FMT_THB, "Formula", "บาท/เดือน", bold=True, fill=OKFILL)
 s.skip()
 
-s.band("4) SUMMARY / สรุปค่าบริการ", "H")
-s.calc("sv_total_y", "ค่าบำรุงรักษา + เดินทาง ต่อปี",
-       f"={R('F_SERVICE','sv_year')}+{R('F_SERVICE','km_year')}", FMT_THB, "Formula", "บาท/ปี", bold=True)
-s.inp("wr_years", "จำนวนปีที่เฉลี่ยค่าประกันขยาย / Amortize warranty over", 4, FMT_INT, "Input", "ปี")
-s.calc("per_month", "ค่าบริการเฉลี่ยต่อเดือน (ส่งไป A_INPUT)",
-       f"=({R('F_SERVICE','sv_total_y')}/12)+IFERROR({REF[('F_SERVICE','wr_total')]}/{R('F_SERVICE','wr_years')}/12,0)",
-       FMT_THB, "Formula", "บาท/เดือน — ลิงก์เข้าช่อง 'ค่าบำรุงรักษาตามสัญญา' ใน A_INPUT",
-       bold=True, fill=OKFILL)
+s.band("3) ค่าบริการระบบ I'M CONTROL หลังปีแรก — เปรียบเทียบ 2 ทางเลือก")
+s.text("ทางเลือก A : เปิดใช้งานระบบสแกนชำระเงิน PromptPay 3%", bold=True, color="000000")
+s.calc("a_fee", "ค่าบริการรายเดือน/รายสาขา/รายปี", 0, FMT_THB, "Formula",
+       "ได้รับยกเว้นทั้งหมดทันทีเมื่อเปิดสแกน — ต้นทุนไปอยู่ที่ค่าธรรมเนียม 3% ของยอดสแกน (คิดในต้นทุนผันแปร)")
+s.text("ทางเลือก B : ไม่เปิดสแกน (รับเหรียญ/แบงก์อย่างเดียว)", bold=True, color="000000")
+s.inp("b_mach", "ค่าบริการรายเดือน ต่อเครื่อง", 100, FMT_THB, "Input", "บาท/เครื่อง/เดือน (1 Stack นับ 2 เครื่อง)")
+s.inp("b_brch", "ค่าบริการรายเดือน ต่อสาขา", 700, FMT_THB, "Input", "บาท/สาขา/เดือน — เฉพาะสาขาที่มี 7 เครื่องขึ้นไป")
+s.inp("b_year", "ค่าบริการรายปี", 8000, FMT_THB, "Input", "บาท/ปี — ค่าดูแลรักษาและบำรุงรักษาระบบรายปี")
+s.calc("b_units","จำนวนเครื่องที่ระบบนับ", f"={IN('t_act')}", FMT_INT, "จาก A_INPUT", "เครื่อง", color=C_LINK)
+s.calc("b_month","ค่าบริการระบบรวมต่อเดือน (ทางเลือก B)",
+       f"={R('F_SERVICE','b_units')}*{R('F_SERVICE','b_mach')}"
+       f"+IF({R('F_SERVICE','b_units')}>=7,{R('F_SERVICE','b_brch')},0)"
+       f"+{R('F_SERVICE','b_year')}/12", FMT_THB, "Formula", "บาท/เดือน", bold=True)
+s.calc("b_break","ยอดสแกนที่ทำให้สองทางเลือกเท่ากัน",
+       f"=IFERROR({R('F_SERVICE','b_month')}/{IN('scan_fee')},0)", FMT_THB, "Formula",
+       "บาท/เดือน — ถ้ายอดที่ลูกค้าสแกนจริงสูงกว่านี้ ทางเลือก B (ไม่เปิดสแกน) จะถูกกว่าในแง่ค่าธรรมเนียม")
+s.calc("scan_act", "ยอดสแกนจริงต่อเดือน (ประมาณการ)", 0, FMT_THB, "จาก C_CALC",
+       "รายได้รวม x %ที่ชำระผ่านสแกน (ลิงก์อัตโนมัติ)", color=C_LINK)
+s.calc("fee_act", "ค่าธรรมเนียม 3% ที่ต้องจ่าย (ทางเลือก A)",
+       f"={R('F_SERVICE','scan_act')}*{IN('scan_fee')}", FMT_THB, "Formula", "บาท/เดือน")
+s.calc("advice", "คำแนะนำ / Recommendation",
+       f'=IF({R("F_SERVICE","fee_act")}>{R("F_SERVICE","b_month")},'
+       f'"ทางเลือก B ถูกกว่า "&TEXT({R("F_SERVICE","fee_act")}-{R("F_SERVICE","b_month")},"#,##0")'
+       f'&" บาท/เดือน — แต่ถ้าไม่เปิดสแกน ลูกค้าจ่ายได้เฉพาะเหรียญ/แบงก์ ซึ่งมักทำให้ยอดขายลดลงมากกว่าที่ประหยัดได้",'
+       f'"ทางเลือก A (เปิดสแกน 3%) ถูกกว่า "&TEXT({R("F_SERVICE","b_month")}-{R("F_SERVICE","fee_act")},"#,##0")'
+       f'&" บาท/เดือน และสะดวกกับลูกค้ามากกว่า")', None, "Formula",
+       "เทียบค่าธรรมเนียมจริงกับค่าบริการระบบรายเดือน")
+s.calc("sys_month","ค่าบริการระบบที่ใช้จริง (ส่งไป A_INPUT)",
+       f'=IF({IN("pay_mode")}="{PAY_SCAN}",{R("F_SERVICE","a_fee")},{R("F_SERVICE","b_month")})',
+       FMT_THB, "Formula", "บาท/เดือน", bold=True, fill=OKFILL)
+s.skip()
+
+s.band("4) SUMMARY / สรุป")
+s.calc("free_y1", "ส่วนลดปีแรก (รวมอยู่ในแพ็กเกจแล้ว)",
+       f"={R('F_SERVICE','mt_month')}+{R('F_SERVICE','sys_month')}", FMT_THB, "Formula",
+       "บาท/เดือน — ชีต E_CASHFLOW จะหักค่านี้ออกจากค่าใช้จ่ายคงที่ของปีที่ 1 ให้อัตโนมัติ", bold=True)
+s.calc("total_y", "ค่าบำรุงรักษา + ค่าบริการระบบ ต่อปี (ปีที่ 2 เป็นต้นไป)",
+       f"=({R('F_SERVICE','mt_month')}+{R('F_SERVICE','sys_month')})*12", FMT_THB, "Formula", "บาท/ปี")
+s.text("หมายเหตุเพิ่มเติม", "", bold=True)
+for t in ["ค่าธรรมเนียมสแกน PromptPay 3% คิดเฉพาะยอดที่สแกนเท่านั้น ไม่เกี่ยวกับเงินสด — ตัดรอบ 7 วัน (จันทร์-อาทิตย์) โอนทุกวันพุธผ่าน K BIZ",
+          "ช่องทาง TrueMoney Payment คิดค่าธรรมเนียม 3.5% ต่อรายการ (เป็นตัวเลือกเสริม เปิด/ปิดได้)",
+          "การนับเครื่อง: เครื่องวางซ้อนบน-ล่าง 1 Stack ระบบนับเป็น 2 เครื่อง",
+          "หลังหมดประกัน 3 ปี ควรตั้งงบซ่อมเพิ่มที่ช่อง 'ค่าซ่อมผันแปร' ใน A_INPUT เป็น 2-3%"]:
+    s.text("•  " + t, "")
 ws.sheet_view.showGridLines = False
-
-# patch A_INPUT maintenance link
-_m = REF[("A_INPUT", "maint")].split("!")[1].replace("$", "")
-a.ws[_m] = f"={SV('per_month')}"
+# patch A_INPUT links
+for k, srckey in (("maint", "mt_month"), ("sysfee", "sys_month")):
+    _c = REF[("A_INPUT", k)].split("!")[1].replace("$", "")
+    a.ws[_c] = f"={R('F_SERVICE', srckey)}"
 
 # ============================================================ C_CALC
 c = SheetBuilder(wb, "C_CALC", "548235")
 ws = c.ws
-for col, w in zip("ABCDE", [52, 20, 18, 16, 56]):
+for col, w in zip("ABCDE", [52, 20, 18, 16, 58]):
     ws.column_dimensions[col].width = w
 ws.merge_cells("A1:E1")
 put(ws, "A1", "C) CALCULATION ENGINE / เครื่องคำนวณ (ห้ามแก้ไข — เป็นสูตรทั้งหมด)",
@@ -610,46 +618,42 @@ put(ws, "A1", "C) CALCULATION ENGINE / เครื่องคำนวณ (ห
 ws.row_dimensions[1].height = 26
 c.r = 3
 MODE_A = f'LEFT({IN("mode")},1)="A"'
-YES    = lambda ref: f'LEFT({ref},1)="Y"'
+YES = lambda ref: f'LEFT({ref},1)="Y"'
 
 c.band("1) CAPACITY / กำลังผลิต")
-c.calc("w_units", "เครื่องซักที่ใช้จริง / Washer units",
-       f"=IF({IN('w_ov')}>0,{IN('w_ov')},{IN('w_pkg')})", FMT_INT, "เครื่อง")
-c.calc("d_units", "เครื่องอบที่ใช้จริง / Dryer units",
-       f"=IF({IN('d_ov')}>0,{IN('d_ov')},{IN('d_pkg')})", FMT_INT, "เครื่อง")
-c.calc("t_units", "รวมเครื่องซัก+อบ / Total machines",
-       f"={CA('w_units')}+{CA('d_units')}", FMT_INT, "เครื่อง", bold=True)
-c.calc("cyc_w", "เวลา/รอบซักที่ใช้ / Wash cycle time",
-       f"=IF({IN('cyc_w')}>0,{IN('cyc_w')},{pk_lookup('avg_w_cycle')})", FMT_NUM, "นาที")
-c.calc("cyc_d", "เวลา/รอบอบที่ใช้ / Dry cycle time",
-       f"=IF({IN('cyc_d')}>0,{IN('cyc_d')},{pk_lookup('avg_d_cycle')})", FMT_NUM, "นาที")
-c.calc("cpd_w", "รอบ/วัน ต่อเครื่องซัก / Cycles per washer-day",
+c.calc("w_units", "เครื่องซักที่ใช้จริง", f"={IN('w_act')}", FMT_INT, "จาก A_INPUT", "เครื่อง", color=C_LINK)
+c.calc("d_units", "เครื่องอบที่ใช้จริง", f"={IN('d_act')}", FMT_INT, "จาก A_INPUT", "เครื่อง", color=C_LINK)
+c.calc("t_units", "รวมเครื่องซัก+อบ", f"={IN('t_act')}", FMT_INT, "จาก A_INPUT", "เครื่อง", bold=True, color=C_LINK)
+c.calc("cyc_w", "เวลา/รอบซักที่ใช้",
+       f"=IF({IN('cyc_w')}>0,{IN('cyc_w')},{REF[('B_PACKAGES','cyc_w')]})", FMT_NUM, "นาที")
+c.calc("cyc_d", "เวลา/รอบอบที่ใช้",
+       f"=IF({IN('cyc_d')}>0,{IN('cyc_d')},{REF[('B_PACKAGES','cyc_d')]})", FMT_NUM, "นาที")
+c.calc("cpd_w", "รอบ/วัน ต่อเครื่องซัก",
        f"=IFERROR({IN('open_h')}*60/({CA('cyc_w')}+{IN('chg')}),0)", FMT_NUM, "รอบ",
        note="สูตร: ชั่วโมงเปิด x 60 / (เวลารอบ + เวลาโหลด-ปลดผ้า)")
-c.calc("cpd_d", "รอบ/วัน ต่อเครื่องอบ / Cycles per dryer-day",
-       f"=IFERROR({IN('open_h')}*60/({CA('cyc_d')}+{IN('chg')}),0)", FMT_NUM, "รอบ")
-c.calc("cpd_c", "รอบ/วัน ต่อเครื่อง (โหมด A) / Combined",
+c.calc("cpd_d", "รอบ/วัน ต่อเครื่องอบ",
+       f"=IFERROR({IN('open_h')}*60/({CA('cyc_d')}+{IN('chg')}),0)", FMT_NUM, "รอบ",
+       note="เครื่องอบ 45 นาที = คอขวดของร้าน")
+c.calc("cpd_c", "รอบ/วัน ต่อ 1 คู่ (โหมด A)",
        f"=IFERROR({IN('open_h')}*60/({IN('cyc_c')}+{IN('chg')}),0)", FMT_NUM, "รอบ")
-c.calc("eff_days", "วันทำการถ่วงน้ำหนักการใช้งาน / Effective days",
+c.calc("eff_days", "วันทำการถ่วงน้ำหนักการใช้งาน",
        f"={IN('wd_days')}*{IN('wd_util')}+{IN('we_days')}*{IN('we_util')}", FMT_NUM, "วัน-เทียบเท่า",
        note="สูตร: วันธรรมดา x %ใช้งาน + วันหยุด x %ใช้งาน")
-c.calc("cap_w", "กำลังผลิตเครื่องซัก / Washer capacity",
-       f"={CA('w_units')}*{CA('cpd_w')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน")
-c.calc("cap_d", "กำลังผลิตเครื่องอบ / Dryer capacity",
-       f"={CA('d_units')}*{CA('cpd_d')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน")
-c.calc("cap_c", "กำลังผลิตรวม (โหมด A) / Combined capacity",
-       f"={CA('t_units')}*{CA('cpd_c')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน")
-c.calc("cap_tot", "กำลังผลิตที่ใช้ตามโหมด / Capacity (active mode)",
+c.calc("cap_w", "กำลังผลิตเครื่องซัก", f"={CA('w_units')}*{CA('cpd_w')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน")
+c.calc("cap_d", "กำลังผลิตเครื่องอบ", f"={CA('d_units')}*{CA('cpd_d')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน")
+c.calc("cap_c", "กำลังผลิตรวม (โหมด A)", f"={CA('w_units')}*{CA('cpd_c')}*{CA('eff_days')}", FMT_INT, "รอบ/เดือน",
+       note="โหมด A: 1 รอบ = ใช้เครื่องซัก 1 + เครื่องอบ 1 จึงจำกัดด้วยจำนวนคู่")
+c.calc("cap_tot", "กำลังผลิตที่ใช้ตามโหมด",
        f"=IF({MODE_A},{CA('cap_c')},{CA('cap_w')}+{CA('cap_d')})", FMT_INT, "รอบ/เดือน", bold=True)
-c.calc("cap_max", "กำลังผลิตสูงสุด 100% / Theoretical max",
-       f"=IF({MODE_A},{CA('t_units')}*{CA('cpd_c')}*{IN('days')},"
+c.calc("cap_max", "กำลังผลิตสูงสุด 100%",
+       f"=IF({MODE_A},{CA('w_units')}*{CA('cpd_c')}*{IN('days')},"
        f"({CA('w_units')}*{CA('cpd_w')}+{CA('d_units')}*{CA('cpd_d')})*{IN('days')})",
-       FMT_INT, "รอบ/เดือน", note="ใช้ดูเพดานสูงสุดถ้าเครื่องเดินเต็ม 24 ชม.")
+       FMT_INT, "รอบ/เดือน", note="เพดานถ้าเครื่องเดินเต็ม 24 ชม. ทุกวัน")
 c.skip()
 
 c.band("2) PRICE / ราคาต่อรอบ")
-c.calc("p_w", "ราคา/รอบซักที่ใช้", f"=IF({IN('price_w')}>0,{IN('price_w')},{pk_lookup('avg_w_price')})", FMT_THB2, "บาท")
-c.calc("p_d", "ราคา/รอบอบที่ใช้", f"=IF({IN('price_d')}>0,{IN('price_d')},{pk_lookup('avg_d_price')})", FMT_THB2, "บาท")
+c.calc("p_w", "ราคา/รอบซัก", f"={IN('price_w')}", FMT_THB2, "บาท")
+c.calc("p_d", "ราคา/รอบอบ", f"={IN('price_d')}", FMT_THB2, "บาท")
 c.calc("p_c", "ราคา/รอบ รวม (โหมด A)", f"={IN('price_c')}", FMT_THB2, "บาท")
 c.skip()
 
@@ -657,12 +661,12 @@ c.band("3) DEMAND & BILLED CYCLES / ความต้องการและ�
 c.calc("o2o_w", "รอบซักจาก O2O", f"=IF({YES(IN('o2o_on'))},{IN('o2o_ord')}*{IN('days')},0)", FMT_INT, "รอบ/เดือน")
 c.calc("o2o_d", "รอบอบจาก O2O",
        f"=IF({YES(IN('o2o_on'))},{IN('o2o_ord')}*{IN('days')}*MAX({IN('o2o_cyc')}-1,0),0)", FMT_INT, "รอบ/เดือน")
-c.calc("dem_tot", "ความต้องการรวม / Total demand",
+c.calc("dem_tot", "ความต้องการรวม",
        f"=IF({MODE_A},{IN('dem_w')}+{CA('o2o_w')},{IN('dem_w')}+{IN('dem_d')}+{CA('o2o_w')}+{CA('o2o_d')})",
        FMT_INT, "รอบ/เดือน", bold=True)
 c.calc("cap_chk", "Capacity check (ความต้องการ / กำลังผลิต)",
        f"=IFERROR({CA('dem_tot')}/{CA('cap_tot')},0)", FMT_PCT, "%",
-       note=">100% = เครื่องไม่พอ ควรเพิ่มเครื่องหรือขึ้นราคา | <50% = ลงทุนเกินตัว", bold=True)
+       note=">100% = เครื่องไม่พอ ควรอัปแพ็กเกจหรือขึ้นราคา | <50% = ลงทุนเกินตัว", bold=True)
 c.calc("fill", "อัตราที่รองรับได้จริง / Fill rate",
        f"=IFERROR(MIN(1,{CA('cap_tot')}/{CA('dem_tot')}),1)", FMT_PCT, "%",
        note="ถ้าความต้องการเกินกำลังผลิต รายได้จะถูกจำกัดตามสัดส่วนนี้")
@@ -670,91 +674,101 @@ c.calc("bil_w", "รอบซักที่ขายได้ (walk-in)", f"={I
 c.calc("bil_d", "รอบอบที่ขายได้ (walk-in)", f"=IF({MODE_A},0,{IN('dem_d')}*{CA('fill')})", FMT_INT, "รอบ/เดือน")
 c.calc("bil_tot", "รอบที่ขายได้รวม (รวม O2O)",
        f"={CA('bil_w')}+{CA('bil_d')}+({CA('o2o_w')}+{CA('o2o_d')})*{CA('fill')}", FMT_INT, "รอบ/เดือน", bold=True)
-c.calc("cyc_day", "รอบเฉลี่ยต่อวัน / Cycles per day",
-       f"=IFERROR({CA('bil_tot')}/{IN('days')},0)", FMT_NUM, "รอบ/วัน")
+c.calc("run_w", "จำนวนรอบที่เครื่องซักเดินจริง",
+       f"={CA('bil_w')}+{CA('o2o_w')}*{CA('fill')}", FMT_INT, "รอบ/เดือน",
+       note="ใช้คิดค่าไฟ-ค่าน้ำ และอายุเครื่องตามจำนวนรอบ")
+c.calc("run_d", "จำนวนรอบที่เครื่องอบเดินจริง",
+       f"=IF({MODE_A},{CA('bil_w')}+{CA('o2o_w')}*{CA('fill')},{CA('bil_d')}+{CA('o2o_d')}*{CA('fill')})",
+       FMT_INT, "รอบ/เดือน", note="โหมด A: 1 รอบรวม = เดินเครื่องอบ 1 รอบด้วย")
+c.calc("cyc_day", "รอบเฉลี่ยต่อวัน", f"=IFERROR({CA('bil_tot')}/{IN('days')},0)", FMT_NUM, "รอบ/วัน")
 c.skip()
 
 c.band("4) REVENUE / รายได้ต่อเดือน")
-c.calc("rev_w", "รายได้เครื่องซัก / Wash revenue",
+c.calc("rev_w", "รายได้เครื่องซัก",
        f"=IF({MODE_A},{CA('bil_w')}*{CA('p_c')},{CA('bil_w')}*{CA('p_w')})", FMT_THB, "บาท")
-c.calc("rev_d", "รายได้เครื่องอบ / Dry revenue", f"={CA('bil_d')}*{CA('p_d')}", FMT_THB, "บาท")
-c.calc("rev_o2o", "รายได้ O2O / O2O revenue",
+c.calc("rev_d", "รายได้เครื่องอบ", f"={CA('bil_d')}*{CA('p_d')}", FMT_THB, "บาท")
+c.calc("rev_o2o", "รายได้ O2O",
        f"=IF({YES(IN('o2o_on'))},{IN('o2o_ord')}*{IN('days')}*{IN('o2o_tk')}*{CA('fill')},0)", FMT_THB, "บาท")
-c.calc("rev_vd", "รายได้สินค้า vending / Vending revenue",
+c.calc("rev_vd", "รายได้ตู้จำหน่ายสินค้า",
        f"={R('A_INPUT','cust_n')}*{IN('vend_att')}*{IN('vend_sp')}*{CA('fill')}", FMT_THB, "บาท")
-c.calc("rev_ex", "รายได้อื่น / Other income", f"={IN('extra')}", FMT_THB, "บาท")
+c.calc("rev_ex", "รายได้อื่น", f"={IN('extra')}", FMT_THB, "บาท")
 c.calc("rev_tot", "รายได้รวม / TOTAL REVENUE",
        f"=SUM({CA('rev_w')},{CA('rev_d')},{CA('rev_o2o')},{CA('rev_vd')},{CA('rev_ex')})",
        FMT_THB, "บาท/เดือน", bold=True, fill=KPIFIL)
-c.calc("rev_mach", "รายได้ต่อเครื่องต่อวัน / Revenue per machine-day",
+c.calc("rev_mach", "รายได้ต่อเครื่องต่อวัน",
        f"=IFERROR(({CA('rev_w')}+{CA('rev_d')})/{CA('t_units')}/{IN('days')},0)", FMT_THB2, "บาท",
        note="ตัวชี้วัดเทียบสาขา: ต่ำกว่า 200 บาท/เครื่อง/วัน ถือว่าน่ากังวล")
-c.calc("p_avg", "ราคาเฉลี่ยต่อรอบ / Blended price per cycle",
+c.calc("p_avg", "ราคาเฉลี่ยต่อรอบ",
        f"=IFERROR(({CA('rev_w')}+{CA('rev_d')}+{CA('rev_o2o')})/{CA('bil_tot')},0)", FMT_THB2, "บาท")
 c.skip()
 
 c.band("5) VARIABLE COST / ต้นทุนผันแปร")
-c.calc("cost_util", "ค่าน้ำ-ไฟ / Utilities",
+c.calc("cost_util", "ค่าไฟ + ค่าน้ำ / Electricity & Water",
        f"=IF(LEFT({IN('util_mode')},1)=\"1\",({IN('elec_p')}+{IN('water_p')})*{CA('rev_tot')},"
-       f"({CA('bil_w')}+{CA('o2o_w')}*{CA('fill')})*({pk_lookup('kwh_w')}*{IN('elec_r')}+{pk_lookup('water_w')}/1000*{IN('water_r')})"
-       f"+({CA('bil_d')}+{CA('o2o_d')}*{CA('fill')})*{pk_lookup('kwh_d')}*{IN('elec_r')})+{IN('base_kwh')}",
-       FMT_THB, "บาท", note="โมเดล 1 = % ของยอดขาย | โมเดล 2 = kWh/ลิตร จริง + ค่าไฟส่วนกลาง")
-c.calc("cost_cons", "วัสดุสิ้นเปลือง / Consumables", f"={CA('bil_tot')}*{IN('cons_cyc')}", FMT_THB, "บาท")
+       f"{CA('run_w')}*({REF[('B_PACKAGES','kwh_w')]}*{IN('elec_r')}+{REF[('B_PACKAGES','wat_w')]}/1000*{IN('water_r')})"
+       f"+{CA('run_d')}*{REF[('B_PACKAGES','kwh_d')]}*{IN('elec_r')})+{IN('base_kwh')}",
+       FMT_THB, "บาท", note="โมเดล 1 = % ของยอดขาย | โมเดล 2 = kWh/ลิตรจริง + ค่าไฟส่วนกลาง")
+c.calc("cost_gas", "ค่าแก๊ส LPG เครื่องอบ / Gas",
+       f"={CA('run_d')}*{REF[('B_PACKAGES','gas_d')]}*{IN('gas_r')}", FMT_THB, "บาท",
+       note="เครื่องอบ Samsung เป็นระบบแก๊ส — คิดแยกจากค่าไฟทุกโมเดล")
+c.calc("cost_cons", "วัสดุสิ้นเปลือง", f"={CA('bil_tot')}*{IN('cons_cyc')}", FMT_THB, "บาท")
 c.calc("cost_o2o", "ค่าธรรมเนียม + ค่าส่ง O2O",
        f"={CA('rev_o2o')}*({IN('o2o_fee')}+{IN('o2o_rd')})", FMT_THB, "บาท")
-c.calc("cost_epay", "ค่าธรรมเนียมรับชำระเงิน / e-Payment fee",
-       f"={CA('rev_tot')}*{IN('epay_sh')}*{IN('epay_p')}", FMT_THB, "บาท")
-c.calc("cost_rep", "ค่าซ่อมผันแปร / Variable repair", f"={CA('rev_tot')}*{IN('repair_p')}", FMT_THB, "บาท")
-c.calc("cost_roy", "ค่าสิทธิ์/แฟรนไชส์ / Royalty", f"={CA('rev_tot')}*{IN('royal_p')}", FMT_THB, "บาท")
+c.calc("cost_scan", "ค่าธรรมเนียมสแกน PromptPay",
+       f'=IF({IN("pay_mode")}="{PAY_SCAN}",{CA("rev_tot")}*{IN("scan_share")}*{IN("scan_fee")},0)',
+       FMT_THB, "บาท", note="3% ของยอดที่สแกนเท่านั้น — แลกกับการยกเว้นค่าบริการระบบทั้งหมด")
+c.calc("cost_rep", "ค่าซ่อมผันแปร", f"={CA('rev_tot')}*{IN('repair_p')}", FMT_THB, "บาท")
+c.calc("cost_roy", "ค่าสิทธิ์/แฟรนไชส์", f"={CA('rev_tot')}*{IN('royal_p')}", FMT_THB, "บาท")
 c.calc("cost_cogs", "ต้นทุนสินค้า vending + รายได้อื่น",
        f"={CA('rev_vd')}*(1-{IN('vend_gp')})+{CA('rev_ex')}*(1-{IN('extra_gp')})", FMT_THB, "บาท")
 c.calc("var_tot", "รวมต้นทุนผันแปร / TOTAL VARIABLE COST",
-       f"=SUM({CA('cost_util')},{CA('cost_cons')},{CA('cost_o2o')},{CA('cost_epay')},"
+       f"=SUM({CA('cost_util')},{CA('cost_gas')},{CA('cost_cons')},{CA('cost_o2o')},{CA('cost_scan')},"
        f"{CA('cost_rep')},{CA('cost_roy')},{CA('cost_cogs')})", FMT_THB, "บาท/เดือน", bold=True, fill=KPIFIL)
 c.calc("var_pct", "ต้นทุนผันแปร % ของยอดขาย", f"=IFERROR({CA('var_tot')}/{CA('rev_tot')},0)", FMT_PCT, "%")
-c.calc("cm", "กำไรส่วนเกิน / Contribution margin",
-       f"={CA('rev_tot')}-{CA('var_tot')}", FMT_THB, "บาท/เดือน")
+c.calc("cm", "กำไรส่วนเกิน / Contribution margin", f"={CA('rev_tot')}-{CA('var_tot')}", FMT_THB, "บาท/เดือน")
 c.calc("cm_pct", "อัตรากำไรส่วนเกิน / CM %", f"=IFERROR({CA('cm')}/{CA('rev_tot')},0)", FMT_PCT, "%", bold=True)
 c.skip()
 
 c.band("6) CAPEX & FUNDING / เงินลงทุนและแหล่งเงิน")
-c.calc("capex_m", "CAPEX เครื่อง+อุปกรณ์",
-       f"=IF({IN('capex_m_ov')}>0,{IN('capex_m_ov')},{pk_lookup('capex_m')})", FMT_THB, "บาท")
-c.calc("capex_f", "CAPEX ตกแต่ง/ติดตั้ง",
-       f"=IF({IN('capex_f_ov')}>0,{IN('capex_f_ov')},{pk_lookup('capex_fit')})", FMT_THB, "บาท")
-c.calc("capex_vat", "VAT ที่เป็นต้นทุน (กรณีไม่จด VAT)",
-       f"=IF({YES(IN('vat_reg'))},0,({CA('capex_m')}+{CA('capex_f')})*{IN('vat')})", FMT_THB, "บาท",
-       note="ถ้าจด VAT จะขอคืนได้ → ไม่ถือเป็นต้นทุน")
+c.calc("vat_f", "ตัวคูณ VAT", f"=IF({YES(IN('vat_reg'))},1/(1+{IN('vat')}),1)", '0.0000', "Formula",
+       note="จด VAT = ขอคืนภาษีซื้อได้ → ถอด VAT ออกจาก CAPEX | ไม่จด = VAT เป็นต้นทุน")
+c.calc("capex_pkg", "ราคาแพ็กเกจ (หลังปรับ VAT)",
+       f"=IF({IN('capex_pkg_ov')}>0,{IN('capex_pkg_ov')},{IN('capex_pkg_r')})*{CA('vat_f')}", FMT_THB, "บาท")
+c.calc("capex_prep", "CAPEX นอกแพ็กเกจ", f"={IN('capex_prep_r')}*{CA('vat_f')}", FMT_THB, "บาท")
+c.calc("capex_add", "อุปกรณ์เสริม", f"={IN('capex_addon_r')}*{CA('vat_f')}", FMT_THB, "บาท")
+c.calc("capex_m", "ส่วนที่เป็นตัวเครื่อง (ตัดค่าเสื่อม 8 ปี)",
+       f"={CA('capex_pkg')}*{IN('mach_share')}+{CA('capex_add')}", FMT_THB, "บาท")
+c.calc("capex_f", "ส่วนงานติดตั้ง/ตกแต่ง/งานเตรียม (ตัดค่าเสื่อม 5 ปี)",
+       f"={CA('capex_pkg')}*(1-{IN('mach_share')})+{CA('capex_prep')}+{IN('capex_other')}", FMT_THB, "บาท")
 c.calc("deposit", "เงินประกันค่าเช่า", f"={IN('rent')}*{IN('dep_month')}", FMT_THB, "บาท")
 c.calc("capex_tot", "เงินลงทุนรวม / TOTAL CAPEX",
-       f"=SUM({CA('capex_m')},{CA('capex_f')},{IN('capex_other')},{CA('capex_vat')},{CA('deposit')},{IN('wcap')})",
-       FMT_THB, "บาท", bold=True, fill=OKFILL)
+       f"={CA('capex_m')}+{CA('capex_f')}+{CA('deposit')}+{IN('wcap')}", FMT_THB, "บาท",
+       bold=True, fill=OKFILL)
 c.calc("loan", "เงินกู้ / Loan amount", f"={CA('capex_tot')}*{IN('loan_p')}", FMT_THB, "บาท")
 c.calc("equity", "เงินลงทุนของเจ้าของ / Equity", f"={CA('capex_tot')}-{CA('loan')}", FMT_THB, "บาท", bold=True)
-c.calc("pmt", "ค่างวดเงินกู้/เดือน / Loan payment",
+c.calc("pmt", "ค่างวดเงินกู้/เดือน",
        f"=IFERROR(IF({CA('loan')}>0,PMT({IN('loan_r')}/12,{IN('loan_y')}*12,-{CA('loan')}),0),0)",
        FMT_THB, "บาท/เดือน")
 c.skip()
 
-c.band("7) MONTHLY P&L / งบกำไรขาดทุนต่อเดือน (ปีที่ 1)")
+c.band("7) MONTHLY P&L / งบกำไรขาดทุนต่อเดือน (สภาวะปกติ ปีที่ 2 เป็นต้นไป)")
 c.calc("pl_rev", "รายได้ / Revenue", f"={CA('rev_tot')}", FMT_THB, "บาท", bold=True)
 c.calc("pl_var", "หัก ต้นทุนผันแปร", f"=-{CA('var_tot')}", FMT_THB, "บาท")
 c.calc("pl_fix", "หัก ค่าใช้จ่ายคงที่", f"=-{IN('fix_tot')}", FMT_THB, "บาท")
-c.calc("ebitda", "EBITDA / กำไรก่อนดอกเบี้ย ภาษี ค่าเสื่อม",
-       f"={CA('pl_rev')}+{CA('pl_var')}+{CA('pl_fix')}", FMT_THB, "บาท", bold=True, fill=KPIFIL)
-c.calc("dep", "ค่าเสื่อมราคา / Depreciation",
+c.calc("ebitda", "EBITDA", f"={CA('pl_rev')}+{CA('pl_var')}+{CA('pl_fix')}", FMT_THB, "บาท",
+       bold=True, fill=KPIFIL)
+c.calc("dep", "ค่าเสื่อมราคา",
        f"=IFERROR({CA('capex_m')}/{IN('dep_y_m')}/12,0)+IFERROR({CA('capex_f')}/{IN('dep_y_f')}/12,0)",
        FMT_THB, "บาท")
 c.calc("ebit", "EBIT", f"={CA('ebitda')}-{CA('dep')}", FMT_THB, "บาท")
 c.calc("int", "ดอกเบี้ยจ่าย (เฉลี่ยปีแรก)", f"={CA('loan')}*{IN('loan_r')}/12", FMT_THB, "บาท")
 c.calc("ebt", "กำไรก่อนภาษี / EBT", f"={CA('ebit')}-{CA('int')}", FMT_THB, "บาท")
-c.calc("tax", "ภาษีเงินได้ / Income tax", f"=MAX(0,{CA('ebt')})*{IN('tax_r')}", FMT_THB, "บาท")
+c.calc("tax", "ภาษีเงินได้", f"=MAX(0,{CA('ebt')})*{IN('tax_r')}", FMT_THB, "บาท")
 c.calc("np", "กำไรสุทธิ / NET PROFIT", f"={CA('ebt')}-{CA('tax')}", FMT_THB, "บาท/เดือน",
        bold=True, fill=OKFILL)
-c.calc("np_m", "อัตรากำไรสุทธิ / Net margin", f"=IFERROR({CA('np')}/{CA('rev_tot')},0)", FMT_PCT, "%", bold=True)
-c.calc("ebitda_m", "อัตรา EBITDA / EBITDA margin", f"=IFERROR({CA('ebitda')}/{CA('rev_tot')},0)", FMT_PCT, "%")
-c.calc("cf", "กระแสเงินสดสุทธิ/เดือน / Net cash flow",
-       f"={CA('np')}+{CA('dep')}", FMT_THB, "บาท/เดือน", bold=True,
+c.calc("np_m", "อัตรากำไรสุทธิ", f"=IFERROR({CA('np')}/{CA('rev_tot')},0)", FMT_PCT, "%", bold=True)
+c.calc("ebitda_m", "อัตรา EBITDA", f"=IFERROR({CA('ebitda')}/{CA('rev_tot')},0)", FMT_PCT, "%")
+c.calc("cf", "กระแสเงินสดสุทธิ/เดือน", f"={CA('np')}+{CA('dep')}", FMT_THB, "บาท/เดือน", bold=True,
        note="กำไรสุทธิ + ค่าเสื่อม (ค่าเสื่อมไม่ใช่เงินสดออกจริง)")
 c.skip()
 
@@ -762,14 +776,12 @@ c.band("8) KEY RESULTS / ตัวชี้วัดหลัก")
 c.calc("payback", "ระยะคืนทุน / Payback period",
        f"=IFERROR(IF({CA('cf')}<=0,999,{CA('capex_tot')}/{CA('cf')}),999)", FMT_NUM, "เดือน", bold=True)
 c.calc("payback_y", "ระยะคืนทุน (ปี)", f"={CA('payback')}/12", FMT_NUM, "ปี")
-c.calc("roi", "ROI ต่อปี (ต่อเงินลงทุนรวม)",
-       f"=IFERROR({CA('np')}*12/{CA('capex_tot')},0)", FMT_PCT, "%", bold=True)
-c.calc("roe", "ROE ต่อปี (ต่อเงินของเจ้าของ)",
-       f"=IFERROR({CA('np')}*12/{CA('equity')},0)", FMT_PCT, "%")
-c.calc("bep_rev", "จุดคุ้มทุน (ยอดขาย) / Break-even revenue",
+c.calc("roi", "ROI ต่อปี", f"=IFERROR({CA('np')}*12/{CA('capex_tot')},0)", FMT_PCT, "%", bold=True)
+c.calc("roe", "ROE ต่อปี", f"=IFERROR({CA('np')}*12/{CA('equity')},0)", FMT_PCT, "%")
+c.calc("bep_rev", "จุดคุ้มทุน (ยอดขาย)",
        f"=IFERROR(({IN('fix_tot')}+{CA('int')})/{CA('cm_pct')},0)", FMT_THB, "บาท/เดือน",
        note="ฐานเงินสด (ไม่รวมค่าเสื่อม)")
-c.calc("bep_cyc", "จุดคุ้มทุน (รอบ/วัน) / Break-even cycles",
+c.calc("bep_cyc", "จุดคุ้มทุน (รอบ/วัน)",
        f"=IFERROR({CA('bep_rev')}/{CA('p_avg')}/{IN('days')},0)", FMT_NUM, "รอบ/วัน", bold=True)
 c.calc("bep_pct", "จุดคุ้มทุนคิดเป็น % ของยอดขายปัจจุบัน",
        f"=IFERROR({CA('bep_rev')}/{CA('rev_tot')},0)", FMT_PCT, "%",
@@ -777,21 +789,25 @@ c.calc("bep_pct", "จุดคุ้มทุนคิดเป็น % ขอ�
 c.calc("dscr", "DSCR (ความสามารถชำระหนี้)",
        f"=IFERROR(IF({CA('pmt')}=0,\"N/A\",{CA('ebitda')}/{CA('pmt')}),\"N/A\")", FMT_X, "เท่า",
        note="ธนาคารต้องการ > 1.25 เท่า")
+c.calc("life_y", "อายุเครื่องซักตามจำนวนรอบ",
+       f"=IFERROR({REF[('B_PACKAGES','life_w')]}/({CA('run_w')}*12/{CA('w_units')}),99)", FMT_NUM, "ปี",
+       note="สเปก 30,000 รอบ หารด้วยรอบที่เดินจริงต่อเครื่องต่อปี")
 c.skip()
 
 c.band("9) HEALTH CHECK / ตรวจสุขภาพโมเดล")
 def check(key, label, formula, note):
     c.calc(key, label, formula, None, "ตรวจสอบ", note)
 check("chk_cap", "กำลังผลิต / Capacity",
-      f'=IF({CA("cap_chk")}>1,"เครื่องไม่พอ — ความต้องการเกินกำลังผลิต ควรเพิ่มเครื่อง/ขึ้นราคา",'
-      f'IF({CA("cap_chk")}<0.4,"ลงทุนเกินความต้องการ — พิจารณาลดจำนวนเครื่อง","OK"))',
+      f'=IF({CA("cap_chk")}>1,"เครื่องไม่พอ — ความต้องการเกินกำลังผลิต ควรอัปแพ็กเกจหรือขึ้นราคา",'
+      f'IF({CA("cap_chk")}<0.4,"ลงทุนเกินความต้องการ — พิจารณาลดขนาดแพ็กเกจ","OK"))',
       "เป้าหมาย 60-95%")
 check("chk_rent", "สัดส่วนค่าเช่า / Rent ratio",
       f'=IF(IFERROR({IN("rent")}/{CA("rev_tot")},1)>0.15,"ค่าเช่าสูงเกิน 15% ของยอดขาย — ต่อรองใหม่","OK")',
       "ค่าเช่าไม่ควรเกิน 12-15% ของยอดขาย")
-check("chk_util", "สัดส่วนค่าน้ำ-ไฟ / Utility ratio",
-      f'=IF(IFERROR({CA("cost_util")}/{CA("rev_tot")},1)>0.22,"ค่าน้ำ-ไฟสูงเกิน 22% — ตรวจสอบอัตราค่าไฟ/ขนาดเครื่อง","OK")',
-      "ปกติ 14-20% ของยอดขาย")
+check("chk_util", "สัดส่วนค่าน้ำ-ไฟ-แก๊ส / Utility ratio",
+      f'=IF(IFERROR(({CA("cost_util")}+{CA("cost_gas")})/{CA("rev_tot")},1)>0.25,'
+      f'"ค่าน้ำ-ไฟ-แก๊สสูงเกิน 25% — ตรวจสอบอัตราค่าไฟ/ค่าแก๊ส และ %การใช้งาน","OK")',
+      "ปกติ 16-24% ของยอดขาย (รวมค่าแก๊สเครื่องอบ)")
 check("chk_pb", "ระยะคืนทุน / Payback",
       f'=IF({CA("payback")}>36,"คืนทุนช้ากว่า 36 เดือน — ทบทวนทำเล/ค่าเช่า/ราคา",'
       f'IF({CA("payback")}>24,"คืนทุน 24-36 เดือน — รับได้แต่ควรปรับปรุง","ดี: คืนทุนภายใน 24 เดือน"))',
@@ -799,9 +815,20 @@ check("chk_pb", "ระยะคืนทุน / Payback",
 check("chk_bep", "ความปลอดภัยจุดคุ้มทุน / BEP safety",
       f'=IF({CA("bep_pct")}>0.8,"เสี่ยงสูง — ยอดขายต้องถึง 80%+ ของประมาณการจึงจะคุ้มทุน","OK")',
       "Margin of safety = 1 - ค่านี้")
+check("chk_life", "อายุเครื่องตามจำนวนรอบ",
+      f'=IF({CA("life_y")}<{IN("dep_y_m")},"เครื่องจะครบ 30,000 รอบก่อนตัดค่าเสื่อมหมด — ตั้งงบเปลี่ยนเครื่องเพิ่ม","OK")',
+      "สเปก Samsung: ทนทานรับ 30,000 รอบ")
+check("chk_pay", "ทางเลือกระบบรับชำระเงิน",
+      f'=IF({IN("pay_mode")}="{PAY_SCAN}",IF({CA("rev_tot")}*{IN("scan_share")}*{IN("scan_fee")}>{R("F_SERVICE","b_month")},'
+      f'"ยอดสแกนสูง — ค่าธรรมเนียม 3% แพงกว่าค่าบริการระบบแบบรายเดือน ลองเทียบ F_SERVICE",'
+      f'"OK — เปิดสแกนคุ้มกว่า"),"OK — ไม่เปิดสแกน")',
+      "เปรียบเทียบรายละเอียดที่ชีต F_SERVICE")
 ws.sheet_view.showGridLines = False
 ws.freeze_panes = "A3"
 
+# link F_SERVICE!scan_act back to C_CALC (ไม่เกิด circular เพราะ rev_tot ไม่ได้ขึ้นกับค่าบริการ)
+_sa = REF[("F_SERVICE", "scan_act")].split("!")[1].replace("$", "")
+s.ws[_sa] = f"={CA('rev_tot')}*{IN('scan_share')}"
 # ============================================================ D_DASHBOARD
 d = wb.create_sheet("D_DASHBOARD")
 d.sheet_properties.tabColor = "FFC000"
@@ -862,16 +889,18 @@ PL = [
     ("รายได้ O2O", CA('rev_o2o'), False),
     ("รายได้ vending + อื่นๆ", f"{CA('rev_vd')}+{CA('rev_ex')}", False),
     ("รวมรายได้ / Total revenue", CA('rev_tot'), True),
-    ("ค่าน้ำ-ไฟ", f"-{CA('cost_util')}", False),
+    ("ค่าไฟ + ค่าน้ำ", f"-{CA('cost_util')}", False),
+    ("ค่าแก๊ส LPG (เครื่องอบ)", f"-{CA('cost_gas')}", False),
     ("วัสดุสิ้นเปลือง", f"-{CA('cost_cons')}", False),
-    ("ค่าธรรมเนียม O2O + รับชำระเงิน", f"-{CA('cost_o2o')}-{CA('cost_epay')}", False),
+    ("ค่าธรรมเนียมสแกน 3% + O2O", f"-{CA('cost_scan')}-{CA('cost_o2o')}", False),
     ("ค่าซ่อม + ค่าสิทธิ์ + ต้นทุนสินค้า", f"-{CA('cost_rep')}-{CA('cost_roy')}-{CA('cost_cogs')}", False),
     ("รวมต้นทุนผันแปร", f"-{CA('var_tot')}", True),
     ("กำไรส่วนเกิน / Contribution margin", CA('cm'), True),
     ("ค่าเช่า", f"-{IN('rent')}", False),
     ("ค่าจ้างพนักงาน", f"-{IN('staff')}", False),
-    ("ค่าบำรุงรักษาตามสัญญา", f"-{R('A_INPUT','maint')}", False),
-    ("ค่าใช้จ่ายคงที่อื่นๆ", f"-({IN('fix_tot')}-{IN('rent')}-{IN('staff')}-{R('A_INPUT','maint')})", False),
+    ("ค่าบำรุงรักษา + ค่าบริการระบบ", f"-{R('A_INPUT','maint')}-{R('A_INPUT','sysfee')}", False),
+    ("ค่าใช้จ่ายคงที่อื่นๆ",
+     f"-({IN('fix_tot')}-{IN('rent')}-{IN('staff')}-{R('A_INPUT','maint')}-{R('A_INPUT','sysfee')})", False),
     ("รวมค่าใช้จ่ายคงที่", f"-{IN('fix_tot')}", True),
     ("EBITDA", CA('ebitda'), True),
     ("ค่าเสื่อมราคา", f"-{CA('dep')}", False),
@@ -893,8 +922,9 @@ put(d, f"A{rr}", "HEALTH CHECK / ตรวจสุขภาพโมเดล",
 for ch in "BCDEFGH":
     put(d, f"{ch}{rr}", None, fill=BAND)
 rr += 1
-for key, lab in [("chk_cap", "กำลังผลิต"), ("chk_rent", "ค่าเช่า"), ("chk_util", "ค่าน้ำ-ไฟ"),
-                 ("chk_pb", "ระยะคืนทุน"), ("chk_bep", "จุดคุ้มทุน")]:
+for key, lab in [("chk_cap", "กำลังผลิต"), ("chk_rent", "ค่าเช่า"), ("chk_util", "ค่าน้ำ-ไฟ-แก๊ส"),
+                 ("chk_pb", "ระยะคืนทุน"), ("chk_bep", "จุดคุ้มทุน"), ("chk_life", "อายุเครื่อง"),
+                 ("chk_pay", "ระบบรับชำระเงิน")]:
     put(d, f"A{rr}", lab, size=10, bold=True)
     d.merge_cells(f"B{rr}:H{rr}")
     put(d, f"B{rr}", f"={CA(key)}", size=10, align="left")
@@ -903,7 +933,7 @@ for key, lab in [("chk_cap", "กำลังผลิต"), ("chk_rent", "ค�
     rr += 1
 from openpyxl.formatting.rule import FormulaRule
 _hc0 = REF[("D_DASHBOARD", "pl_end")] + 2
-_hc_rng = f"A{_hc0}:H{_hc0+4}"
+_hc_rng = f"A{_hc0}:H{_hc0+6}"
 d.conditional_formatting.add(_hc_rng, FormulaRule(
     formula=[f'AND($B{_hc0}<>"",ISERROR(SEARCH("OK",$B{_hc0})),ISERROR(SEARCH("ดี",$B{_hc0})))'],
     fill=PatternFill("solid", fgColor=WARN), stopIfTrue=False))
@@ -969,7 +999,8 @@ for m in range(1, MONTHS + 1):
     put(e, f"C{r}", f"=IF(A{r}>{H12},0,{CA('rev_tot')}*(1+{IN('growth')})^(B{r}-1))",
         fmt=FMT_THB, align="right", size=9, fill=alt)
     put(e, f"D{r}", f"=-C{r}*{CA('var_pct')}", fmt=FMT_THB, align="right", size=9, fill=alt)
-    put(e, f"E{r}", f"=IF(A{r}>{H12},0,-(({IN('fix_tot')}-{IN('rent')})+{IN('rent')}*(1+{IN('rent_esc')})^(B{r}-1)))",
+    put(e, f"E{r}", f"=IF(A{r}>{H12},0,-(({IN('fix_tot')}-{IN('rent')})-IF(B{r}=1,{R('F_SERVICE','free_y1')},0)"
+                    f"+{IN('rent')}*(1+{IN('rent_esc')})^(B{r}-1)))",
         fmt=FMT_THB, align="right", size=9, fill=alt)
     put(e, f"F{r}", f"=C{r}+D{r}+E{r}", fmt=FMT_THB, align="right", size=9, fill=alt)
     put(e, f"G{r}", f"=IF(A{r}>{H12},0,IF(A{r}<={IN('dep_y_m')}*12,IFERROR({CA('capex_m')}/{IN('dep_y_m')}/12,0),0)"
@@ -1009,7 +1040,7 @@ put(e, "J3", f"=IF(SUM(X{R0}:X{LAST})=0,\"เกิน 60 ด.\",SUM(X{R0}:X{LAS
     bold=True, align="right", fill=KPIFIL, size=12)
 put(e, "L3", f"=SUM(N{R0}:N{LAST})", fmt=FMT_THB, bold=True, align="right", fill=KPIFIL, size=12)
 put(e, "A4", "NPV คิดจาก FCF โครงการ ด้วยอัตราคิดลดใน A_INPUT | IRR เจ้าของคิดจากกระแสเงินสดหลังชำระหนี้ | "
-             "เดือนสุดท้ายของ horizon รวมมูลค่าคงเหลือของเครื่อง + เงินประกันค่าเช่า + เงินทุนหมุนเวียนคืน",
+             "ปีที่ 1 ระบบหักค่าบำรุงรักษาและค่าบริการระบบออกให้ (รวมในแพ็กเกจแล้ว) | เดือนสุดท้ายของ horizon รวมมูลค่าคงเหลือของเครื่อง + เงินประกันค่าเช่า + เงินทุนหมุนเวียนคืน",
     italic=True, size=9, color="595959", border=False)
 e.freeze_panes = f"C{HDR_ROW+1}"
 REF[("E_CASHFLOW", "npv")]  = "'E_CASHFLOW'!$B$3"
@@ -1217,6 +1248,7 @@ ASM = [("ประชากรในพื้นที่ (คน)", IN('pop'), 
        ("ชั่วโมงเปิด/วัน", IN('open_h'), FMT_NUM, "วันเปิด/เดือน", IN('days'), FMT_INT),
        ("% ใช้งานวันธรรมดา", IN('wd_util'), FMT_PCT, "% ใช้งานวันหยุด", IN('we_util'), FMT_PCT),
        ("ค่าเช่า (บาท/เดือน)", IN('rent'), FMT_THB, "ค่าจ้างพนักงาน (บาท/เดือน)", IN('staff'), FMT_THB),
+       ("ค่าไฟ+น้ำ (บาท/เดือน)", CA('cost_util'), FMT_THB, "ค่าแก๊ส LPG (บาท/เดือน)", CA('cost_gas'), FMT_THB),
        ("รอบที่ขายได้ (รอบ/เดือน)", CA('bil_tot'), FMT_INT, "Capacity check", CA('cap_chk'), FMT_PCT),
        ("จุดคุ้มทุน (รอบ/วัน)", CA('bep_cyc'), FMT_NUM, "จุดคุ้มทุน (บาท/เดือน)", CA('bep_rev'), FMT_THB)]
 for i, (l1, v1, f1, l2, v2, f2) in enumerate(ASM):
@@ -1266,19 +1298,20 @@ pv.print_area = f"A1:E{r+3}"
 pv.page_margins.left = pv.page_margins.right = 0.4
 pv.page_margins.top = pv.page_margins.bottom = 0.5
 
+
 # ============================================================ 0_README
 rd = wb.create_sheet("0_README")
 rd.sheet_properties.tabColor = "404040"
 rd.sheet_view.showGridLines = False
-rd.column_dimensions["A"].width = 30
-rd.column_dimensions["B"].width = 110
+rd.column_dimensions["A"].width = 32
+rd.column_dimensions["B"].width = 112
 rd.merge_cells("A1:B1")
 put(rd, "A1", "การคำนวณ ROI ร้านสะดวกซัก  Samsung Commercial", bold=True, size=16,
     color=C_WHT, fill=NAVY, align="center", border=False)
 rd.row_dimensions[1].height = 34
 rd.merge_cells("A2:B2")
-put(rd, "A2", "LAUNDROMAT ROI MODEL — Version 1.0  |  จัดทำ 18-09-2026", size=10,
-    color="595959", align="center", border=False, fill=GREY)
+put(rd, "A2", "LAUNDROMAT ROI MODEL — Version 2.0  |  อัปเดต 19-09-2026  |  อิงราคาและสเปกจริงจากเอกสาร Samsung Commercial Franchise",
+    size=10, color="595959", align="center", border=False, fill=GREY)
 
 def rsec(r, title):
     rd.merge_cells(f"A{r}:B{r}")
@@ -1294,11 +1327,12 @@ def rrow(r, k, v, color="000000", bold=False):
 r = 4
 r = rsec(r, "1) วิธีใช้งาน 5 ขั้นตอน / HOW TO USE")
 for k, v in [
-    ("ขั้นที่ 1", "ไปที่ชีต H_LOCATION_SCORE ให้คะแนนทำเลก่อน — ถ้าได้ NO-GO ไม่ต้องคำนวณต่อ"),
-    ("ขั้นที่ 2", "ไปที่ชีต B_PACKAGES ใส่ราคาเครื่องจริงจากใบเสนอราคา และกำหนดจำนวนเครื่องในแต่ละแพ็กเกจ"),
-    ("ขั้นที่ 3", "ไปที่ชีต A_INPUT กรอกเฉพาะช่องสีเหลือง (ประชากร ค่าเช่า ราคา/รอบ ฯลฯ)"),
-    ("ขั้นที่ 4", "ดูผลที่ชีต D_DASHBOARD และ E_CASHFLOW — ตรวจ HEALTH CHECK ว่ามีคำเตือนหรือไม่"),
-    ("ขั้นที่ 5", "ทดสอบความเสี่ยงที่ชีต G_SCENARIO แล้วพิมพ์ชีต I_PRINT_VIEW (A4 1 หน้า) เสนอลูกค้า"),
+    ("ขั้นที่ 1", "ชีต H_LOCATION_SCORE — ให้คะแนนทำเลก่อน ถ้าได้ NO-GO ไม่ต้องคำนวณต่อ"),
+    ("ขั้นที่ 2", "ชีต B_PACKAGES — ตรวจราคาแพ็กเกจ (S/M/L) และกรอก 'CAPEX นอกแพ็กเกจ' ที่ลูกค้าต้องเตรียมเอง "
+                  "พร้อมเลือกอุปกรณ์เสริมที่จะซื้อเพิ่ม"),
+    ("ขั้นที่ 3", "ชีต A_INPUT — กรอกช่องสีเหลือง: ประชากร ค่าเช่า ราคา/รอบ และเลือกระบบรับชำระเงิน"),
+    ("ขั้นที่ 4", "ชีต F_SERVICE — เทียบ 2 ทางเลือกค่าบริการระบบ (เปิดสแกน 3% vs จ่ายรายเดือน)"),
+    ("ขั้นที่ 5", "ดูผลที่ D_DASHBOARD / E_CASHFLOW → ทดสอบความเสี่ยงที่ G_SCENARIO → พิมพ์ I_PRINT_VIEW เสนอลูกค้า"),
 ]:
     r = rrow(r, k, v)
 r += 1
@@ -1315,56 +1349,69 @@ r += 1
 
 r = rsec(r, "3) แผนผังชีต / SHEET MAP")
 for k, v in [
-    ("0_README", "หน้านี้ — คู่มือ ข้อสมมติ และสิ่งที่ต้องเติมข้อมูล"),
-    ("A_INPUT", "ช่องกรอกข้อมูลทั้งหมด 8 หมวด: โครงการ / ตลาด / แพ็กเกจ / CAPEX / การดำเนินงาน / รายได้เสริม / OPEX / การเงิน-ภาษี"),
-    ("B_PACKAGES", "ฐานข้อมูลเครื่อง ราคา เวลาต่อรอบ ค่าไฟ-ค่าน้ำต่อรอบ และนิยามแพ็กเกจ S/M/L/XL/CUSTOM"),
-    ("C_CALC", "เครื่องคำนวณ 9 ส่วน (capacity → ราคา → รอบที่ขายได้ → รายได้ → ต้นทุน → CAPEX → P&L → KPI → health check)"),
-    ("D_DASHBOARD", "สรุป KPI + งบกำไรขาดทุนต่อเดือน + คำเตือนอัตโนมัติ"),
-    ("E_CASHFLOW", "กระแสเงินสด 60 เดือน + NPV + IRR + คืนทุนแบบเงินสดและแบบคิดลด + ตารางผ่อนชำระเงินกู้"),
-    ("F_SERVICE", "ประกันขยายเวลา + แพ็กเกจบำรุงรักษา + ค่าเดินทางนอกพื้นที่ (ส่งค่าเฉลี่ยต่อเดือนเข้า A_INPUT)"),
+    ("0_README", "หน้านี้ — คู่มือ ที่มาตัวเลข ข้อควรระวัง และสิ่งที่ต้องยืนยันกับ Samsung"),
+    ("A_INPUT", "ช่องกรอก 8 หมวด: โครงการ / ตลาด / แพ็กเกจ / CAPEX / การดำเนินงาน / รายได้เสริม / OPEX / การเงิน-ภาษี"),
+    ("B_PACKAGES", "สเปกเครื่อง + แพ็กเกจ S/M/L/CUSTOM + CAPEX นอกแพ็กเกจ + อุปกรณ์เสริม + checklist สิ่งที่รวมในแพ็กเกจ"),
+    ("C_CALC", "เครื่องคำนวณ 9 ส่วน (capacity → รอบที่ขายได้ → รายได้ → ต้นทุน → CAPEX → P&L → KPI → health check)"),
+    ("D_DASHBOARD", "สรุป KPI + งบกำไรขาดทุนต่อเดือน + คำเตือนอัตโนมัติ 7 ข้อ"),
+    ("E_CASHFLOW", "กระแสเงินสด 60 เดือน + NPV + IRR + คืนทุนแบบเงินสด/คิดลด + ตารางผ่อนเงินกู้"),
+    ("F_SERVICE", "ประกันที่รวมในแพ็กเกจ + ค่าบำรุงรักษาหลังปีแรก + เปรียบเทียบค่าบริการระบบ 2 ทางเลือก"),
     ("G_SCENARIO", "Worst / Base / Best + ตารางความอ่อนไหว 2 ทาง (ราคา x % ลูกค้า)"),
-    ("H_LOCATION_SCORE", "แบบให้คะแนนทำเล 12 เกณฑ์ พร้อมข้อสรุป GO / HOLD / NO-GO"),
-    ("I_PRINT_VIEW", "หน้าสรุปการลงทุน A4 1 หน้า สำหรับพิมพ์เสนอลูกค้า"),
-    ("Z_LISTS", "รายการตัวเลือกของ dropdown (ซ่อนไว้ — เปิดได้ด้วยคลิกขวาที่แท็บ > Unhide)"),
+    ("H_LOCATION_SCORE", "ให้คะแนนทำเล 12 เกณฑ์ พร้อมข้อสรุป GO / HOLD / NO-GO"),
+    ("I_PRINT_VIEW", "สรุปการลงทุน A4 1 หน้า สำหรับพิมพ์เสนอลูกค้า"),
+    ("Z_LISTS", "รายการตัวเลือก dropdown (ซ่อนไว้ — คลิกขวาที่แท็บ > Unhide)"),
 ]:
     r = rrow(r, k, v)
 r += 1
 
-r = rsec(r, "4) ที่มาของตัวเลขตั้งต้น / SOURCE OF DEFAULT VALUES")
-for k, v, col in [
-    ("โครงสร้างโมเดล", "อ้างอิงโครงสร้างฟอร์ม Franchise Maintenance Pgm. และ Laundry Crew ROI Model ที่ผู้ใช้ให้มา "
-                       "(หมวด Market size / Package & Pricing / Monthly costs / Investment summary)", "000000"),
-    ("% ใช้งานวันธรรมดา 35% และวันหยุด 65%", "ค่าตั้งต้นจากฟอร์มต้นฉบับที่ผู้ใช้ให้มา", "000000"),
-    ("ค่าไฟ 12% ค่าน้ำ 2% ของยอดขาย", "ค่าตั้งต้นจากฟอร์มต้นฉบับที่ผู้ใช้ให้มา (โมเดล 1)", "000000"),
-    ("ราคาเครื่อง / ราคาประกัน / ราคาแพ็กเกจบริการ",
-     "เป็นตัวเลขสมมติเพื่อให้สูตรทำงานได้ ยังไม่ใช่ราคาจริงของ Samsung — ต้องแทนที่ด้วยใบเสนอราคาจริงก่อนใช้กับลูกค้า", "C00000"),
-    ("ค่าไฟ 4.80 บาท/kWh, ค่าน้ำ 18 บาท/ลบ.ม.", "ค่าประมาณอัตราธุรกิจขนาดเล็กในไทย — ตรวจสอบกับบิลจริงของพื้นที่", "C00000"),
-    ("อัตราภาษีนิติบุคคล 20%", "อัตราทั่วไป — กรณี SME (ทุนจดทะเบียน ≤5 ลบ. รายได้ ≤30 ลบ.) กำไร 300k แรกยกเว้น, 300k-3M = 15%", "000000"),
-]:
-    r = rrow(r, k, v, color=col)
-r += 1
-
-r = rsec(r, "5) สิ่งที่ต้องเติมก่อนใช้งานจริง / TO-DO BEFORE LIVE USE")
+r = rsec(r, "4) ตัวเลขที่ยืนยันแล้วจากเอกสาร Samsung / CONFIRMED DATA")
 for k, v in [
-    ("1. ราคาเครื่อง", "ใส่ราคาเครื่องซัก/อบ Samsung Commercial แต่ละรุ่นจริง ที่ชีต B_PACKAGES คอลัมน์ F"),
-    ("2. สเปกเครื่อง", "เวลาต่อรอบ / kWh ต่อรอบ / ลิตรต่อรอบ จากเอกสารสเปกผู้ผลิต (คอลัมน์ E, H, I)"),
-    ("3. เงื่อนไขบริการ", "ราคาประกันขยายเวลา + แพ็กเกจบำรุงรักษา + ค่าเดินทาง/กม. ที่ชีต F_SERVICE"),
-    ("4. โครงสร้างแพ็กเกจ", "จำนวนเครื่องในแพ็กเกจ S/M/L/XL ให้ตรงกับที่บริษัทขายจริง"),
-    ("5. ค่าตกแต่งร้าน", "ราคางานระบบไฟ 3 เฟส งานน้ำ ท่อระบายเครื่องอบ จากผู้รับเหมาจริง"),
-    ("6. ข้อมูลอ้างอิงจากสาขาที่เปิดแล้ว", "% การใช้งานจริง รอบ/วัน/เครื่อง เพื่อ calibrate ค่า utilization ให้แม่นขึ้น"),
+    ("ราคาแพ็กเกจ (รวม VAT)", "S = 3 คู่ 699,000 บาท | M = 4 คู่ 799,000 บาท | L = 5 คู่ 899,000 บาท (Best seller)"),
+    ("สเปกเครื่อง", "เครื่องซัก 18 kg รอบละ 36 นาที | เครื่องอบแก๊ส 14 kg รอบละ 45 นาที | ทนทานรับ 30,000 รอบ"),
+    ("การรับประกัน", "เครื่องซัก-อบ 3 ปี | กล่องหยอดเหรียญ 1 ปี | ระบบ I'M CONTROL + ค่าบริการ ฟรี 1 ปี"),
+    ("งานบำรุงรักษาในแพ็กเกจ", "S-Built-in = 1 ครั้ง | M&L-Built-in = 2 ครั้ง"),
+    ("ค่าบริการระบบ (หลังปีแรก)", "100 บาท/เครื่อง/เดือน (1 Stack = 2 เครื่อง) + 700 บาท/สาขา/เดือน (สาขา 7 เครื่องขึ้นไป) "
+                                  "+ 8,000 บาท/ปี — ยกเว้นทั้งหมดถ้าเปิดสแกน PromptPay 3%"),
+    ("ค่าธรรมเนียมชำระเงิน", "PromptPay 3% ของยอดสแกน (ตัดรอบ 7 วัน โอนทุกวันพุธผ่าน K BIZ) | TrueMoney 3.5% ต่อรายการ"),
+    ("อุปกรณ์เสริม", "กล่องไซด์บาร์ 13,000-17,500 | iAm Control 4,990 | กล่องสแกนออนไลน์ 5,690 | "
+                     "เครื่องแลกเหรียญ 16,990-49,000 | ตู้จำหน่ายสินค้า 29,990-36,990"),
+    ("สิ่งที่รวมในแพ็กเกจ", "งานไฟฟ้า 1 เฟส (ตู้ควบคุม + เบรกเกอร์ 63A) | ถังน้ำ 1,000 ล. + ปั๊ม 150 W | "
+                            "ระบบแก๊สสลับอัตโนมัติ 2 ข้าง | ท่อลมร้อน 4\" | กรุผนัง ≤25 ตร.ม. | ป้ายกล่องไฟ | "
+                            "เครื่องแลกเหรียญ+ตู้ขายของมินิ | CCTV | โต๊ะเก้าอี้ | พัดลม | อ่างล้างมือ"),
 ]:
     r = rrow(r, k, v)
+r += 1
+
+r = rsec(r, "5) ตัวเลขที่ยังเป็นค่าประมาณ — ต้องยืนยันก่อนใช้จริง / TO CONFIRM")
+for k, v in [
+    ("1. ค่าไฟ/ค่าน้ำ/ค่าแก๊ส ต่อรอบ", "ใส่ไว้ที่ B_PACKAGES: ซัก 0.55 kWh + 110 ลิตร | อบ 0.35 kWh + 0.55 กก.LPG — "
+                                        "ต้องยืนยันจากสเปกผู้ผลิตหรือวัดจากบิลจริงของสาขาที่เปิดแล้ว"),
+    ("2. ราคาขายต่อรอบ", "ตั้งไว้ซัก 50 / อบ 50 บาท ตามราคาตลาด — ต้องสำรวจราคาคู่แข่งในทำเลจริง"),
+    ("3. ค่าบำรุงรักษาหลังปีแรก", "ตั้งไว้ 3,500 บาท/ครั้ง x 2 ครั้ง/ปี ที่ชีต F_SERVICE — ยังไม่ใช่ราคาทางการ"),
+    ("4. CAPEX นอกแพ็กเกจ", "งานไฟเมน มิเตอร์ ประปา แท่นเครื่อง ฝ้า-พื้น (รวม ~178,000-238,000 บาท) — "
+                            "ต้องขอใบเสนอราคาจากผู้รับเหมาจริง เพราะแตกต่างกันมากตามสภาพอาคาร"),
+    ("5. % การใช้งาน (utilization)", "ตั้งไว้ 35% วันธรรมดา / 65% วันหยุด ตามฟอร์มอ้างอิงเดิม — "
+                                     "ควร calibrate จากข้อมูล I'M CONTROL ของสาขาที่เปิดแล้ว"),
+    ("6. ค่าแก๊ส LPG 25 บาท/กก.", "ราคาอ้างอิงตลาด — ตรวจสอบราคารับถังในพื้นที่จริง"),
+]:
+    r = rrow(r, k, v, color="C00000")
 r += 1
 
 r = rsec(r, "6) ข้อควรระวังเชิงตัวเลข / MODEL NOTES")
 for k, v in [
-    ("การจำกัดด้วยกำลังผลิต", "ถ้าความต้องการเกินกำลังผลิต โมเดลจะจำกัดรายได้ด้วย Fill rate อัตโนมัติ (ดู C_CALC ส่วนที่ 3)"),
-    ("โหมดรายได้", "โหมด A คิดราคาเดียวต่อรอบ (ซัก+อบ) ตามฟอร์มเดิม | โหมด B แยกเครื่องซัก-อบ ซึ่งสะท้อนกำลังผลิตจริงมากกว่า"),
-    ("ระยะคืนทุน", "D_DASHBOARD ใช้สูตรง่าย (เงินลงทุน / กระแสเงินสดต่อเดือน) ส่วน E_CASHFLOW คำนวณจากกระแสเงินสดสะสมจริง "
-                   "ซึ่งรวมค่าเช่าที่ปรับขึ้นและการผ่อนชำระหนี้ — ตัวเลขทั้งสองจะต่างกันเล็กน้อยเป็นเรื่องปกติ"),
-    ("VAT", "ถ้าไม่จดทะเบียน VAT ระบบจะบวก VAT ค่าเครื่องเข้าเป็นต้นทุน CAPEX อัตโนมัติ"),
-    ("มูลค่าคงเหลือ", "เดือนสุดท้ายของ horizon จะรวมมูลค่าตามบัญชีที่เหลือของเครื่อง + เงินประกันค่าเช่า + เงินทุนหมุนเวียนคืน"),
-    ("ตัวคูณส่วนแบ่งตลาด", "สูตร 1/(1+จำนวนคู่แข่ง x 0.6) เป็นค่าประมาณ ปรับตัวคูณ 0.6 ได้ที่ชีต A_INPUT ถ้ามีข้อมูลจริง"),
+    ("เครื่องอบคือคอขวด", "เครื่องอบใช้ 45 นาที เทียบกับเครื่องซัก 36 นาที ในแพ็กเกจที่ซัก:อบ = 1:1 "
+                          "กำลังผลิตฝั่งอบจะเต็มก่อนเสมอ — ถ้า Capacity check สูง ให้พิจารณาเพิ่มเครื่องอบก่อน"),
+    ("ค่าแก๊สแยกจากค่าไฟ", "เครื่องอบเป็นระบบแก๊ส LPG ระบบจึงคิดค่าแก๊สแยกทุกโมเดล "
+                           "(โมเดลค่าน้ำ-ไฟแบบ % ของยอดขายครอบคลุมเฉพาะไฟกับน้ำ)"),
+    ("ราคาแพ็กเกจรวม VAT แล้ว", "ถ้าเลือก 'จดทะเบียน VAT = Yes' ระบบจะถอด VAT ออกจาก CAPEX (หาร 1.07) เพราะขอคืนภาษีซื้อได้"),
+    ("การแยกค่าเสื่อม", "ราคาแพ็กเกจเป็นก้อนเดียว จึงใช้ช่อง '% ของราคาแพ็กเกจที่เป็นตัวเครื่อง' (ตั้งไว้ 70%) "
+                        "แยกตัดค่าเสื่อม: ส่วนเครื่อง 8 ปี / ส่วนงานตกแต่ง-ติดตั้ง 5 ปี"),
+    ("ปีแรกไม่มีค่าบริการระบบ", "P&L รายเดือนแสดงสภาวะปกติ (ปีที่ 2 เป็นต้นไป) ส่วน E_CASHFLOW หักส่วนลดปีแรกให้อัตโนมัติ"),
+    ("การจำกัดด้วยกำลังผลิต", "ถ้าความต้องการเกินกำลังผลิต โมเดลจะจำกัดรายได้ด้วย Fill rate (ดู C_CALC ส่วนที่ 3)"),
+    ("ระยะคืนทุน 2 ตัวเลข", "D_DASHBOARD ใช้สูตรง่าย (เงินลงทุน / กระแสเงินสดต่อเดือน) ส่วน E_CASHFLOW คิดจากกระแสเงินสดสะสมจริง "
+                            "รวมค่าเช่าที่ปรับขึ้นและส่วนลดปีแรก — ต่างกันเล็กน้อยเป็นเรื่องปกติ"),
+    ("ถ้าไม่เปิดสแกน", "ลูกค้าจะจ่ายได้เฉพาะเหรียญ/แบงก์ ซึ่งในทางปฏิบัติมักทำให้ยอดขายลดลง "
+                       "โมเดลยังไม่ได้หักผลกระทบส่วนนี้ ให้ปรับ % ลูกค้าลงเองถ้าเลือกทางนี้"),
 ]:
     r = rrow(r, k, v)
 
@@ -1375,12 +1422,12 @@ wb._sheets = [wb[n] for n in ORDER]
 wb.active = 0
 for name in ORDER:
     sh = wb[name]
-    if name not in ("I_PRINT_VIEW",):
+    if name != "I_PRINT_VIEW":
         sh.page_setup.orientation = "landscape" if name in ("E_CASHFLOW", "B_PACKAGES", "G_SCENARIO") else "portrait"
         sh.page_setup.fitToWidth = 1
         sh.page_setup.fitToHeight = 0
         sh.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 
-OUT = "การคำนวณROI_ร้านสะดวกซัก_Samsung_Commercial_v1.0.xlsx"
+OUT = "การคำนวณROI_ร้านสะดวกซัก_Samsung_Commercial_v2.0.xlsx"
 wb.save(OUT)
 print("saved:", OUT)
